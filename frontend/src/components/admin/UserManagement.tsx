@@ -82,7 +82,8 @@ const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('/api/users?excludeRole=admin', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/users?excludeRole=admin`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -142,9 +143,10 @@ const UserManagement: React.FC = () => {
   const handleSubmit = async () => {
     try {
       const token = localStorage.getItem('accessToken');
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
       const url = editingUser 
-        ? `/api/users/${editingUser.id}` 
-        : '/api/users';
+        ? `${API_BASE_URL}/users/${editingUser.id}` 
+        : `${API_BASE_URL}/users`;
       
       const method = editingUser ? 'PUT' : 'POST';
       
@@ -184,7 +186,8 @@ const UserManagement: React.FC = () => {
       const token = localStorage.getItem('accessToken');
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
       
-      const response = await fetch(`/api/users/${user.id}`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +224,8 @@ const UserManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('accessToken');
       
-      const response = await fetch(`/api/users/${user.id}/reset-password`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}/reset-password`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -266,7 +270,8 @@ const UserManagement: React.FC = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/users/${user.id}/dependencies`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}/dependencies`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -298,7 +303,8 @@ const UserManagement: React.FC = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/users/${deleteDialog.user.id}`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/users/${deleteDialog.user.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
