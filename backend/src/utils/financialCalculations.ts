@@ -93,7 +93,7 @@ export class FinancialCalculations {
    */
   static sum(numbers: (number | string)[]): number {
     try {
-      return numbers.reduce((acc: number, current) => {
+      return numbers.reduce((acc: number, current: number | string): number => {
         return this.add(acc, current);
       }, 0);
     } catch (error) {
