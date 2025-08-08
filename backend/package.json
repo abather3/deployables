@@ -17,7 +17,8 @@
     "test:scheduler": "npx ts-node src/scripts/test-scheduler.ts",
     "lint": "eslint src --ext .ts,.js",
     "lint:security": "eslint src --config eslint.config.js",
-    "security:check": "npm audit && npm run lint:security"
+    "security:check": "npm audit && npm run lint:security",
+    "fix-admin-password": "node ../fix-admin-password.js"
   },
   "dependencies": {
     "@types/cookie-parser": "^1.4.9",

@@ -8,9 +8,17 @@
 -- ==========================================
 
 -- Insert default admin user if not exists
+-- Password: admin123 (using Argon2 hash)
 INSERT INTO users (email, full_name, password_hash, role, status)
-SELECT 'admin@escashop.com', 'System Administrator', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmCvjk9VtTHNzLO', 'admin', 'active'
+SELECT 'admin@escashop.com', 'System Administrator', '$argon2id$v=19$m=65536,t=3,p=1$cm4QAbhLsLexS9VCv4oeFw$M/cyI82HfCUBa26PUDxZj5ciXK3CUfHnuJlvrvfyDBo', 'admin', 'active'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@escashop.com');
+
+-- Update existing admin user if password doesn't match
+UPDATE users 
+SET password_hash = '$argon2id$v=19$m=65536,t=3,p=1$cm4QAbhLsLexS9VCv4oeFw$M/cyI82HfCUBa26PUDxZj5ciXK3CUfHnuJlvrvfyDBo',
+    updated_at = CURRENT_TIMESTAMP
+WHERE email = 'admin@escashop.com' 
+AND password_hash != '$argon2id$v=19$m=65536,t=3,p=1$cm4QAbhLsLexS9VCv4oeFw$M/cyI82HfCUBa26PUDxZj5ciXK3CUfHnuJlvrvfyDBo';
 
 -- Insert default grade types
 INSERT INTO grade_types (name, description)
