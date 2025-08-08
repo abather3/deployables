@@ -377,7 +377,8 @@ const QueueManagement = () => {
       setLoading(true);
       console.log('Fetching queue data with token:', accessToken ? 'present' : 'missing');
       
-      const response = await fetch('/api/queue/all-statuses', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/all-statuses`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
@@ -480,7 +481,8 @@ const QueueManagement = () => {
   // WebSocket connection and real-time updates
   useEffect(() => {
     if (accessToken) {
-      const socketConnection = io('http://localhost:5000', {
+      const SOCKET_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
+      const socketConnection = io(SOCKET_URL, {
         auth: {
           token: accessToken
         }
@@ -550,8 +552,9 @@ const QueueManagement = () => {
       
       // Send the new order to the backend
       try {
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
         const customerIds = reorderedQueue.map(customer => customer.id);
-        const response = await fetch('/api/queue/reorder', {
+        const response = await fetch(`${API_BASE_URL}/queue/reorder`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -584,7 +587,8 @@ const QueueManagement = () => {
 
   const handleServeCustomer = async (id: number) => {
     try {
-      const response = await fetch('/api/queue/call-customer', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/call-customer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -625,7 +629,8 @@ const QueueManagement = () => {
 
   const handleCompleteService = async (id: number) => {
     try {
-      const response = await fetch('/api/queue/complete', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -666,7 +671,8 @@ const QueueManagement = () => {
 
   const handleProcessingStatus = async (id: number) => {
     try {
-      const response = await fetch(`/api/queue/${id}/status`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/${id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -799,7 +805,8 @@ const QueueManagement = () => {
     if (!customer) return;
 
     try {
-      const response = await fetch('/api/queue/cancel', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -840,7 +847,8 @@ const QueueManagement = () => {
 
   const handleResetQueue = async () => {
     try {
-      const response = await fetch('/api/queue/reset', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -893,7 +901,8 @@ const QueueManagement = () => {
       
       console.log(`Sending SMS to ${customerName} at ${formattedPhone} using template ${template}`);
       
-      const response = await fetch('/api/sms/send', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/sms/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

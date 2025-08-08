@@ -278,7 +278,8 @@ const DisplayMonitor: React.FC = () => {
 
   const fetchQueueData = async () => {
     try {
-      const response = await fetch('/api/queue/display-all', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/display-all`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -311,7 +312,8 @@ const DisplayMonitor: React.FC = () => {
 
   const fetchCounters = async () => {
     try {
-      const response = await fetch('/api/queue/counters/display', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/counters/display`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
