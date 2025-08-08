@@ -4,7 +4,7 @@ services:
     name: escashop-backend
     env: node
     plan: free
-    buildCommand: cd backend && npm ci && npm run build
+    buildCommand: cd backend && npm ci && npm run build:prod
     startCommand: cd backend && npm start
     healthCheckPath: /health
     envVars:
