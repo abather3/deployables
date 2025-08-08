@@ -289,7 +289,8 @@ const CustomerManagement: React.FC = () => {
         ...(dateFilter.end && { endDate: dateFilter.end })
       });
       
-      const response = await fetch(`/api/customers?${params}`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/customers?${params}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -312,11 +313,12 @@ const CustomerManagement: React.FC = () => {
 
   const fetchDropdownOptions = async () => {
     try {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
       const [gradeResponse, lensResponse] = await Promise.all([
-        fetch('/api/customers/dropdown/grade-types', {
+        fetch(`${API_BASE_URL}/customers/dropdown/grade-types`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
         }),
-        fetch('/api/customers/dropdown/lens-types', {
+        fetch(`${API_BASE_URL}/customers/dropdown/lens-types`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
         })
       ]);
@@ -420,7 +422,8 @@ const CustomerManagement: React.FC = () => {
       };
       
       const isEditing = editingCustomer !== null;
-      const url = isEditing ? `/api/customers/${editingCustomer.id}` : '/api/customers';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const url = isEditing ? `${API_BASE_URL}/customers/${editingCustomer.id}` : `${API_BASE_URL}/customers`;
       const method = isEditing ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -567,7 +570,8 @@ const CustomerManagement: React.FC = () => {
 
   const handleExportCustomer = async (customer: Customer) => {
     try {
-      const response = await fetch(`/api/customers/${customer.id}/export`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/customers/${customer.id}/export`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -624,7 +628,8 @@ const CustomerManagement: React.FC = () => {
     if (!customerToDelete) return;
     
     try {
-      const response = await fetch(`/api/customers/${customerToDelete.id}`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/customers/${customerToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
@@ -651,7 +656,8 @@ const CustomerManagement: React.FC = () => {
     try {
       if (format === 'sheets') {
         // Export to Google Sheets
-        const response = await fetch(`/api/customers/${customer.id}/export/sheets`, {
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${API_BASE_URL}/customers/${customer.id}/export/sheets`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -668,7 +674,8 @@ const CustomerManagement: React.FC = () => {
         }
       } else {
         // Export to Excel or PDF
-        const response = await fetch(`/api/customers/${customer.id}/export/${format}`, {
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${API_BASE_URL}/customers/${customer.id}/export/${format}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
           }
@@ -696,7 +703,8 @@ const CustomerManagement: React.FC = () => {
 
   const handleBulkExport = async (format: 'excel' | 'pdf' | 'sheets') => {
     try {
-      const response = await fetch(`/api/customers/export/${format}`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/customers/export/${format}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
