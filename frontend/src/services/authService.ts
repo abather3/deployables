@@ -2,9 +2,13 @@ import axios from 'axios';
 import { AuthResponse, User } from '../types';
 
 // Cache busting: Force rebuild with correct API URL - 2025-01-08
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// EMERGENCY FIX: Hardcode correct URL due to Render environment variable issues
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://escashop-backend.onrender.com/api'
+  : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
 
 // Debug: Log the API URL being used
+console.log('🌐 AUTH SERVICE: NODE_ENV =', process.env.NODE_ENV);
 console.log('🌐 AUTH SERVICE: API_BASE_URL =', API_BASE_URL);
 console.log('🌐 AUTH SERVICE: REACT_APP_API_URL env =', process.env.REACT_APP_API_URL);
 

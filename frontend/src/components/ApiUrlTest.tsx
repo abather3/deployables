@@ -1,14 +1,19 @@
 import React from 'react';
 
 const ApiUrlTest: React.FC = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const envApiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const actualApiUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://escashop-backend.onrender.com/api'
+    : envApiUrl;
   
   React.useEffect(() => {
     console.log('🔍 API URL TEST COMPONENT:');
+    console.log('  NODE_ENV =', process.env.NODE_ENV);
     console.log('  REACT_APP_API_URL =', process.env.REACT_APP_API_URL);
-    console.log('  Computed apiUrl =', apiUrl);
+    console.log('  Computed envApiUrl =', envApiUrl);
+    console.log('  ACTUAL API URL USED =', actualApiUrl);
     console.log('  All process.env =', process.env);
-  }, [apiUrl]);
+  }, [envApiUrl, actualApiUrl]);
 
   return (
     <div style={{ 
@@ -23,8 +28,9 @@ const ApiUrlTest: React.FC = () => {
       zIndex: 9999
     }}>
       <div><strong>API URL Debug:</strong></div>
+      <div>NODE_ENV: {process.env.NODE_ENV || 'undefined'}</div>
       <div>Env: {process.env.REACT_APP_API_URL || 'undefined'}</div>
-      <div>Computed: {apiUrl}</div>
+      <div>Actual: {actualApiUrl}</div>
       <div>Build: {process.env.REACT_APP_BUILD_TIME || 'unknown'}</div>
     </div>
   );
