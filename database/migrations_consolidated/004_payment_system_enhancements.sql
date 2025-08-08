@@ -19,27 +19,14 @@ END $$;
 
 -- Create unique index to prevent duplicate payment settlements
 -- This prevents accidental duplicate rows in payment_settlements table
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_indexes 
-        WHERE indexname = 'idx_payment_settlements_unique_combo'
-    ) THEN
-        -- Create the unique index concurrently to avoid blocking
-        CREATE UNIQUE INDEX CONCURRENTLY idx_payment_settlements_unique_combo
-        ON payment_settlements (
-            transaction_id, 
-            date_trunc('second', paid_at),  -- Truncate to seconds to avoid microsecond duplicates
-            amount, 
-            cashier_id
-        );
-        
-        RAISE NOTICE 'Created unique index idx_payment_settlements_unique_combo';
-    ELSE
-        RAISE NOTICE 'Index idx_payment_settlements_unique_combo already exists, skipping creation';
-    END IF;
-END
-$$;
+-- Note: Using regular CREATE INDEX instead of CONCURRENTLY to avoid transaction block issues
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_settlements_unique_combo
+ON payment_settlements (
+    transaction_id, 
+    date_trunc('second', paid_at),  -- Truncate to seconds to avoid microsecond duplicates
+    amount, 
+    cashier_id
+);
 
 -- Add comment for documentation
 COMMENT ON INDEX idx_payment_settlements_unique_combo IS 
