@@ -270,9 +270,9 @@ CREATE TRIGGER update_transactions_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Insert default admin user if not exists
+-- Insert default admin user if not exists (password: admin123)
 INSERT INTO users (email, full_name, password_hash, role, status)
-SELECT 'admin@escashop.com', 'System Administrator', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewmCvjk9VtTHNzLO', 'admin', 'active'
+SELECT 'admin@escashop.com', 'System Administrator', '$argon2id$v=19$m=65536,t=3,p=1$Ib8cZ6SxgXryxVwLQ1hkxQ$yRBqLZKrCtooItIpgJEKy54mb40WVy+HbkJFUak1zqU', 'admin', 'active'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@escashop.com');
 
 -- Insert default grade types
