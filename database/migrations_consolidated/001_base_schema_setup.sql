@@ -177,6 +177,42 @@ CREATE TABLE IF NOT EXISTS system_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Alter system_settings table to add missing columns if they don't exist
+DO $$
+BEGIN
+  -- Add 'description' column if it does not exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns WHERE table_name = 'system_settings' AND column_name = 'description'
+  ) THEN
+    ALTER TABLE system_settings ADD COLUMN description TEXT;
+    RAISE NOTICE 'Added `description` column to system_settings';
+  END IF;
+  
+  -- Add 'category' column if it does not exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns WHERE table_name = 'system_settings' AND column_name = 'category'
+  ) THEN
+    ALTER TABLE system_settings ADD COLUMN category VARCHAR(100);
+    RAISE NOTICE 'Added `category` column to system_settings';
+  END IF;
+  
+  -- Add 'data_type' column if it does not exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns WHERE table_name = 'system_settings' AND column_name = 'data_type'
+  ) THEN
+    ALTER TABLE system_settings ADD COLUMN data_type VARCHAR(50) DEFAULT 'string';
+    RAISE NOTICE 'Added `data_type` column to system_settings';
+  END IF;
+  
+  -- Add 'is_public' column if it does not exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns WHERE table_name = 'system_settings' AND column_name = 'is_public'
+  ) THEN
+    ALTER TABLE system_settings ADD COLUMN is_public BOOLEAN DEFAULT false;
+    RAISE NOTICE 'Added `is_public` column to system_settings';
+  END IF;
+END $$;
+
 -- Create daily_reports table
 CREATE TABLE IF NOT EXISTS daily_reports (
     id SERIAL PRIMARY KEY,
