@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import CircularLogo from '../CircularLogo';
+import ApiUrlTest from '../ApiUrlTest';
 
 // Debug helper to log with timestamp
 const logWithTimestamp = (message: string, data?: any) => {
@@ -129,6 +130,7 @@ const Login: React.FC = () => {
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
         : 'bg-gradient-to-br from-primary-50 via-white to-accent-50'
     }`}>
+      <ApiUrlTest />
       <div className="max-w-md w-full space-y-8">
         {/* Logo and Title */}
         <div className="text-center">
