@@ -40,10 +40,11 @@ services:
         value: cutbcijqacobypak
 
   # Frontend
-  - type: static
+  - type: web
     name: escashop-frontend
+    env: static
     buildCommand: cd frontend && npm ci && npm run build
-    publishPath: frontend/build
+    staticPublishPath: frontend/build
     envVars:
       - key: REACT_APP_API_URL
         value: https://escashop-backend.onrender.com
