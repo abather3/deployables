@@ -169,6 +169,10 @@ CREATE TABLE IF NOT EXISTS system_settings (
     id SERIAL PRIMARY KEY,
     key VARCHAR(255) UNIQUE NOT NULL,
     value TEXT NOT NULL,
+    description TEXT,
+    category VARCHAR(100),
+    data_type VARCHAR(50) DEFAULT 'string',
+    is_public BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
