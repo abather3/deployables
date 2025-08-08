@@ -3,7 +3,7 @@ services:
   - type: web
     name: escashop-backend
     env: node
-    plan: free
+    plan: starter
     buildCommand: cd backend && npm ci && npm run build:prod
     startCommand: cd backend && npm start
     healthCheckPath: /health
@@ -47,7 +47,7 @@ services:
     staticPublishPath: frontend/build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://escashop-backend.onrender.com
+        value: https://escashop-backend.onrender.com/api
 
 databases:
   - name: escashop-database
