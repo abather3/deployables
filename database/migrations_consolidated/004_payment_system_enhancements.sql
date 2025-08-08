@@ -42,12 +42,19 @@ BEGIN
         AND column_name = 'funds' 
         AND data_type = 'text'
     ) THEN
+        -- First drop the default constraint if it exists
+        ALTER TABLE daily_reports ALTER COLUMN funds DROP DEFAULT;
+        
         -- Convert TEXT funds column to JSONB
         ALTER TABLE daily_reports ALTER COLUMN funds TYPE JSONB USING 
             CASE 
                 WHEN funds = '[]' OR funds IS NULL THEN '[]'::jsonb
                 ELSE funds::jsonb
             END;
+            
+        -- Re-add the default constraint
+        ALTER TABLE daily_reports ALTER COLUMN funds SET DEFAULT '[]'::jsonb;
+        
         RAISE NOTICE 'Converted daily_reports.funds from TEXT to JSONB';
     ELSIF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
