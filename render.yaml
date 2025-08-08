@@ -43,7 +43,7 @@ services:
   - type: web
     name: escashop-frontend
     env: static
-    buildCommand: cd frontend && npm ci && npm run build
+    buildCommand: cd frontend && npm ci && NODE_ENV=production REACT_APP_API_URL=https://escashop-backend.onrender.com/api npm run build
     staticPublishPath: frontend/build
     envVars:
       - key: REACT_APP_API_URL
