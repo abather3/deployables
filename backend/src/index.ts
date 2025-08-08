@@ -18,6 +18,7 @@ import smsRoutes from './routes/sms';
 import settingsRoutes from './routes/settings';
 import customerNotificationRoutes from './routes/customerNotifications'; // ISOLATED: Separate from queue
 import schedulerRoutes from './routes/scheduler';
+import exportRoutes from './routes/exports';
 import { authenticateToken } from './middleware/auth';
 import { setupWebSocketHandlers } from './services/websocket';
 import { errorHandler } from './middleware/errorHandler';
@@ -80,6 +81,7 @@ app.use('/api/sms', authenticateToken, smsRoutes);
 app.use('/api/settings', authenticateToken, settingsRoutes);
 app.use('/api/customer-notifications', authenticateToken, customerNotificationRoutes); // ISOLATED: Separate from queue/SMS
 app.use('/api/scheduler', authenticateToken, schedulerRoutes);
+app.use('/api/exports', authenticateToken, exportRoutes);
 
 // Global error handler middleware - must be added after all routes
 app.use(errorHandler);
