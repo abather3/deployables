@@ -22,6 +22,7 @@ import StandaloneDisplayMonitor from './components/display/StandaloneDisplayMoni
 import Layout from './components/layout/Layout';
 import DarkModeWrapper from './components/common/DarkModeWrapper';
 import SessionManager from './components/common/SessionManager';
+import DebugEnv from './components/DebugEnv';
 import './App.css';
 
 const createAppTheme = (darkMode: boolean) => createTheme({
@@ -58,6 +59,7 @@ const AppContent: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <DebugEnv />
       <DarkModeWrapper>
         <NotificationProvider>
           <AuthProvider>
