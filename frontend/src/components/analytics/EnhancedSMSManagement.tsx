@@ -89,7 +89,8 @@ const EnhancedSMSManagement: React.FC = () => {
 
   const fetchTemplates = useCallback(async () => {
     try {
-      const response = await fetch('/api/analytics/sms-templates', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/analytics/sms-templates`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -107,7 +108,8 @@ const EnhancedSMSManagement: React.FC = () => {
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/analytics/sms-notifications?page=${currentPage}&limit=20`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/analytics/sms-notifications?page=${currentPage}&limit=20`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -127,7 +129,8 @@ const EnhancedSMSManagement: React.FC = () => {
 
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch('/api/analytics/sms-stats', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/analytics/sms-stats`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -158,7 +161,8 @@ const EnhancedSMSManagement: React.FC = () => {
     if (!editDialog.template) return;
 
     try {
-      const response = await fetch(`/api/analytics/sms-templates/${editDialog.template.templateName}`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/analytics/sms-templates/${editDialog.template.templateName}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -192,7 +196,8 @@ const EnhancedSMSManagement: React.FC = () => {
 
   const handleRetryFailed = async () => {
     try {
-      const response = await fetch('/api/analytics/sms-notifications/retry-failed', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/analytics/sms-notifications/retry-failed`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

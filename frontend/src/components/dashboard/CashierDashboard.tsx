@@ -162,7 +162,8 @@ const CashierDashboard: React.FC = () => {
 
   const loadNotifications = async () => {
     try {
-      const response = await fetch('/api/customer-notifications/active', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/customer-notifications/active`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -182,7 +183,8 @@ const CashierDashboard: React.FC = () => {
 
   const loadQueueStats = async () => {
     try {
-      const response = await fetch('/api/queue/stats', {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/queue/stats`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -200,7 +202,8 @@ const CashierDashboard: React.FC = () => {
   const loadDailyStats = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/transactions/reports/daily?date=${today}`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/transactions/reports/daily?date=${today}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -230,7 +233,8 @@ const CashierDashboard: React.FC = () => {
     
     // Mark notification as read
     try {
-      await fetch(`/api/customer-notifications/${notificationId}/mark-read`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      await fetch(`${API_BASE_URL}/customer-notifications/${notificationId}/mark-read`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
