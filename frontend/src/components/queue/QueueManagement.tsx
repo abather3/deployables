@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatEstimatedTime, minutesToEstimatedTime } from '../../utils/formatters';
 import { notificationSound } from '../../utils/notificationSound';
 import { formatTokenNumberWithHash } from '../../utils/tokenFormatter';
+import { apiGet } from '../../utils/api';
 import io from 'socket.io-client';
 
 const SortableTableRow = ({ customer, onServe, onComplete, onProcessing, onSendSMS, onCancel }: { customer: any; onServe: (id: number) => void; onComplete: (id: number) => void; onProcessing: (id: number) => void; onSendSMS: (customer: any) => void; onCancel: (customer: any) => void }) => {
@@ -377,13 +378,7 @@ const QueueManagement = () => {
       setLoading(true);
       console.log('Fetching queue data with token:', accessToken ? 'present' : 'missing');
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/queue/all-statuses`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiGet('/queue/all-statuses');
       
       console.log('Queue fetch response status:', response.status);
       
