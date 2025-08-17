@@ -338,22 +338,23 @@ const DisplayMonitor: React.FC = () => {
       
       const response = await apiGet('/queue/counters/display');
       
-      console.log('Counters API response status:', response.status);
+      console.log('DisplayMonitor: Counters API response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Counters data received:', data);
+        console.log('DisplayMonitor: Counters data received:', data);
+        console.log('DisplayMonitor: Counters with current customers:', data.filter((c: any) => c.current_customer));
         
         // Handle both array and object response formats
         const countersData = Array.isArray(data) ? data : data.data || data.counters || [];
         setCounters(countersData); // Already filtered to active counters in backend
       } else {
         const errorText = await response.text();
-        console.error('Counters fetch error:', response.status, errorText);
+        console.error('DisplayMonitor: Counters fetch error:', response.status, errorText);
         // Don't show counter errors to user as they are less critical
       }
     } catch (error) {
-      console.error('Error fetching counters:', error);
+      console.error('DisplayMonitor: Error fetching counters:', error);
       // Silent fail for counters as they're secondary to queue data
     }
   };
@@ -379,9 +380,31 @@ const DisplayMonitor: React.FC = () => {
     item.priority_flags.senior_citizen || item.priority_flags.pregnant || item.priority_flags.pwd
   );
 
-  const averageWaitTime = queueData.length > 0 
-    ? Math.round(queueData.reduce((sum, item) => sum + (item.estimated_time || 0), 0) / queueData.length)
-    : 0;
+  // Enhanced average wait time calculation with detailed logging
+  const averageWaitTime = (() => {
+    if (queueData.length === 0) {
+      console.log('DisplayMonitor: No queue data for average wait time calculation');
+      return 0;
+    }
+    
+    const estimatedTimes = queueData.map(item => {
+      const time = item.estimated_time || 0;
+      console.log('DisplayMonitor: Queue item estimated time:', item.name, time);
+      return time;
+    });
+    
+    const total = estimatedTimes.reduce((sum, time) => sum + time, 0);
+    const average = Math.round(total / queueData.length);
+    
+    console.log('DisplayMonitor: Average wait time calculation:', {
+      queueLength: queueData.length,
+      estimatedTimes,
+      total,
+      average
+    });
+    
+    return average;
+  })();
 
   if (loading) {
     return (

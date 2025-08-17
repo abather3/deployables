@@ -140,42 +140,78 @@ const StandaloneDisplayMonitor: React.FC = () => {
   }, [authToken]);
 
   const fetchQueueData = async () => {
-    if (!authToken) return;
+    if (!authToken) {
+      console.error('StandaloneDisplayMonitor: No auth token available');
+      return;
+    }
     
     try {
+      console.log('StandaloneDisplayMonitor: Fetching queue data from /queue/display-all');
+      console.log('StandaloneDisplayMonitor: Auth token:', authToken ? 'Present' : 'Missing');
+      console.log('StandaloneDisplayMonitor: API Base URL from env:', process.env.REACT_APP_API_URL);
+      
       const response = await apiGet('/queue/display-all');
+      console.log('StandaloneDisplayMonitor: Queue API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('StandaloneDisplayMonitor: Queue API error response:', errorText);
+        throw new Error(`Queue API failed: ${response.status} - ${errorText}`);
+      }
+      
       const data = await parseApiResponse(response);
+      console.log('StandaloneDisplayMonitor: Queue data received:', data);
 
       // Transform backend queue data to match frontend interface
-      const transformedData = data.map((item: any) => ({
-        id: item.customer.id,
-        name: item.customer.name,
-        token_number: item.customer.token_number || item.position,
-        queue_status: item.customer.queue_status,
-        priority_flags: item.customer.priority_flags || { senior_citizen: false, pregnant: false, pwd: false },
-        estimated_time: item.estimated_wait_time || 0,
-        counter_id: item.customer.counter_id,
-        counter_name: item.customer.counter_name
-      }));
+      const transformedData = data.map((item: any) => {
+        console.log('StandaloneDisplayMonitor: Processing queue item:', item);
+        return {
+          id: item.customer?.id || item.id,
+          name: item.customer?.name || item.name,
+          token_number: item.customer?.token_number || item.token_number || item.position,
+          queue_status: item.customer?.queue_status || item.queue_status,
+          priority_flags: item.customer?.priority_flags || item.priority_flags || { senior_citizen: false, pregnant: false, pwd: false },
+          estimated_time: item.estimated_wait_time || item.estimated_time || 0,
+          counter_id: item.customer?.counter_id || item.counter_id,
+          counter_name: item.customer?.counter_name || item.counter_name
+        };
+      });
+      
+      console.log('StandaloneDisplayMonitor: Transformed queue data:', transformedData);
       setQueueData(transformedData);
       setAnimationTrigger(prev => prev + 1);
+      setError(null);
     } catch (error) {
-      console.error('Error fetching queue data:', error);
-      setError('Error fetching queue data');
+      console.error('StandaloneDisplayMonitor: Error fetching queue data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(`Failed to fetch queue data: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
   };
 
   const fetchCounters = async () => {
-    if (!authToken) return;
+    if (!authToken) {
+      console.error('StandaloneDisplayMonitor: No auth token for counters');
+      return;
+    }
     
     try {
+      console.log('StandaloneDisplayMonitor: Fetching counters from /queue/counters/display');
       const response = await apiGet('/queue/counters/display');
+      console.log('StandaloneDisplayMonitor: Counters API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('StandaloneDisplayMonitor: Counters API error response:', errorText);
+        throw new Error(`Counters API failed: ${response.status} - ${errorText}`);
+      }
+      
       const data = await parseApiResponse(response);
+      console.log('StandaloneDisplayMonitor: Counters data received:', data);
       setCounters(data);
     } catch (error) {
-      console.error('Error fetching counters:', error);
+      console.error('StandaloneDisplayMonitor: Error fetching counters:', error);
     }
   };
 
@@ -219,9 +255,31 @@ const StandaloneDisplayMonitor: React.FC = () => {
     item.priority_flags.senior_citizen || item.priority_flags.pregnant || item.priority_flags.pwd
   );
 
-  const averageWaitTime = queueData.length > 0 
-    ? Math.round(queueData.reduce((sum, item) => sum + (item.estimated_time || 0), 0) / queueData.length)
-    : 0;
+  // Enhanced average wait time calculation with detailed logging
+  const averageWaitTime = (() => {
+    if (queueData.length === 0) {
+      console.log('StandaloneDisplayMonitor: No queue data for average wait time calculation');
+      return 0;
+    }
+    
+    const estimatedTimes = queueData.map(item => {
+      const time = item.estimated_time || 0;
+      console.log('StandaloneDisplayMonitor: Queue item estimated time:', item.name, time);
+      return time;
+    });
+    
+    const total = estimatedTimes.reduce((sum, time) => sum + time, 0);
+    const average = Math.round(total / queueData.length);
+    
+    console.log('StandaloneDisplayMonitor: Average wait time calculation:', {
+      queueLength: queueData.length,
+      estimatedTimes,
+      total,
+      average
+    });
+    
+    return average;
+  })();
 
   if (loading) {
     return (
