@@ -1,3 +1,5 @@
+import { apiGet, parseApiResponse } from '../../utils/api';
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -141,30 +143,22 @@ const StandaloneDisplayMonitor: React.FC = () => {
     if (!authToken) return;
     
     try {
-      const response = await fetch('/api/queue/display-all', {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        // Transform backend queue data to match frontend interface
-        const transformedData = data.map((item: any) => ({
-          id: item.customer.id,
-          name: item.customer.name,
-          token_number: item.customer.token_number || item.position,
-          queue_status: item.customer.queue_status,
-          priority_flags: item.customer.priority_flags || { senior_citizen: false, pregnant: false, pwd: false },
-          estimated_time: item.estimated_wait_time || 0,
-          counter_id: item.customer.counter_id,
-          counter_name: item.customer.counter_name
-        }));
-        setQueueData(transformedData);
-        setAnimationTrigger(prev => prev + 1);
-      } else {
-        setError('Failed to fetch queue data');
-      }
+      const response = await apiGet('/queue/display-all');
+      const data = await parseApiResponse(response);
+
+      // Transform backend queue data to match frontend interface
+      const transformedData = data.map((item: any) => ({
+        id: item.customer.id,
+        name: item.customer.name,
+        token_number: item.customer.token_number || item.position,
+        queue_status: item.customer.queue_status,
+        priority_flags: item.customer.priority_flags || { senior_citizen: false, pregnant: false, pwd: false },
+        estimated_time: item.estimated_wait_time || 0,
+        counter_id: item.customer.counter_id,
+        counter_name: item.customer.counter_name
+      }));
+      setQueueData(transformedData);
+      setAnimationTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Error fetching queue data:', error);
       setError('Error fetching queue data');
@@ -177,16 +171,9 @@ const StandaloneDisplayMonitor: React.FC = () => {
     if (!authToken) return;
     
     try {
-      const response = await fetch('/api/queue/counters/display', {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCounters(data);
-      }
+      const response = await apiGet('/queue/counters/display');
+      const data = await parseApiResponse(response);
+      setCounters(data);
     } catch (error) {
       console.error('Error fetching counters:', error);
     }
