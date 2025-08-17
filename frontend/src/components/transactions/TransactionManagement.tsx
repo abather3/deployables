@@ -214,7 +214,7 @@ const TransactionManagement: React.FC = () => {
                 {transaction.cashier_name || transaction.sales_agent_name}
               </Typography>
             </Box>
-          </Box>
+          )}
         </Stack>
       </CardContent>
     </Card>
