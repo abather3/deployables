@@ -1,12 +1,25 @@
 // API utility functions for making HTTP requests
 
-const API_BASE_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL : 'http://localhost:5000/api';
+// Defensive API_BASE_URL construction
+let API_BASE_URL: string;
+if (process.env.REACT_APP_API_URL) {
+  // Ensure the API_BASE_URL always ends with /api
+  const baseUrl = process.env.REACT_APP_API_URL.trim();
+  if (baseUrl.endsWith('/api')) {
+    API_BASE_URL = baseUrl;
+  } else {
+    API_BASE_URL = baseUrl.endsWith('/') ? baseUrl + 'api' : baseUrl + '/api';
+  }
+} else {
+  API_BASE_URL = 'http://localhost:5000/api';
+}
 
 // Debug: Log environment variable loading immediately
 console.log('API Utility Loaded - Environment Check:', {
   REACT_APP_API_URL: process.env.REACT_APP_API_URL,
   API_BASE_URL: API_BASE_URL,
-  NODE_ENV: process.env.NODE_ENV
+  NODE_ENV: process.env.NODE_ENV,
+  'Fixed URL': API_BASE_URL
 });
 
 export interface ApiRequestOptions extends RequestInit {
