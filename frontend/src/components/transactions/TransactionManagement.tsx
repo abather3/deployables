@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Typography, 
   Box, 
@@ -14,55 +14,131 @@ import {
   Chip,
   useTheme,
   useMediaQuery,
-  Stack
+  Stack,
+  CircularProgress,
+  Alert,
+  Snackbar,
+  Button,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Pagination
 } from '@mui/material';
-import { Receipt as ReceiptIcon } from '@mui/icons-material';
+import { 
+  Receipt as ReceiptIcon, 
+  Refresh as RefreshIcon,
+  Search as SearchIcon
+} from '@mui/icons-material';
+import { apiGet } from '../../utils/api';
+
+interface Transaction {
+  id: number;
+  or_number: string;
+  amount: number;
+  payment_mode: string;
+  transaction_date: string;
+  customer_name: string;
+  cashier_name?: string;
+  sales_agent_name?: string;
+  created_at: string;
+}
+
+interface TransactionResponse {
+  transactions: Transaction[];
+  pagination: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+  };
+}
 
 const TransactionManagement: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
-  // Mock data for demonstration
-  const [transactions] = useState([
-    {
-      id: 1,
-      or_number: '20250108-001',
-      amount: 1500,
-      payment_mode: 'gcash',
-      transaction_date: '2025-07-08',
-      customer_name: 'John Doe'
-    },
-    {
-      id: 2,
-      or_number: '20250108-002',
-      amount: 2500,
-      payment_mode: 'credit_card',
-      transaction_date: '2025-07-08',
-      customer_name: 'Jane Smith'
-    },
-    {
-      id: 3,
-      or_number: '20250108-003',
-      amount: 3500,
-      payment_mode: 'cash',
-      transaction_date: '2025-07-08',
-      customer_name: 'Maria Garcia'
+  // State management
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [paymentModeFilter, setPaymentModeFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error'
+  });
+
+  // Fetch transactions from API
+  const fetchTransactions = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '10',
+        ...(searchTerm && { search: searchTerm }),
+        ...(paymentModeFilter && { paymentMode: paymentModeFilter }),
+        ...(startDate && { startDate }),
+        ...(endDate && { endDate })
+      });
+      
+      const response = await apiGet(`/transactions?${params}`);
+      
+      if (response.ok) {
+        const data: TransactionResponse = await response.json();
+        setTransactions(data.transactions);
+        setTotalPages(data.pagination.total_pages);
+        setTotalTransactions(data.pagination.total);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch transactions');
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transactions';
+      setError(errorMessage);
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
     }
-  ]);
+  }, [currentPage, searchTerm, paymentModeFilter, startDate, endDate]);
+
+  // Initial load and refresh on dependencies
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, paymentModeFilter, startDate, endDate]);
 
   const getPaymentModeLabel = (mode: string) => {
-    switch (mode) {
-      case 'gcash': return 'Gcash';
+    switch (mode.toLowerCase()) {
+      case 'gcash': return 'GCash';
       case 'maya': return 'Maya';
       case 'bank_transfer': return 'Bank Transfer';
       case 'credit_card': return 'Credit Card';
       case 'cash': return 'Cash';
-      default: return 'Unknown';
+      default: return mode.charAt(0).toUpperCase() + mode.slice(1);
     }
   };
 
   const getPaymentModeColor = (mode: string) => {
-    switch (mode) {
+    switch (mode.toLowerCase()) {
       case 'gcash': return 'primary';
       case 'maya': return 'secondary';
       case 'bank_transfer': return 'info';
@@ -71,6 +147,20 @@ const TransactionManagement: React.FC = () => {
       default: return 'default';
     }
   };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
+  };
+
+  const handleRefresh = () => {
+    fetchTransactions();
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const paymentModes = ['gcash', 'maya', 'bank_transfer', 'credit_card', 'cash'];
 
   const renderMobileTransactionCard = (transaction: any) => (
     <Card key={transaction.id} sx={{ mb: 2 }}>
@@ -110,7 +200,18 @@ const TransactionManagement: React.FC = () => {
                 Date
               </Typography>
               <Typography variant="body1">
-                {transaction.transaction_date}
+                {formatDate(transaction.created_at || transaction.transaction_date)}
+              </Typography>
+            </Box>
+          </Box>
+          
+          {(transaction.cashier_name || transaction.sales_agent_name) && (
+            <Box>
+              <Typography variant="body2" color="text.secondary">
+                {transaction.cashier_name ? 'Cashier' : 'Sales Agent'}
+              </Typography>
+              <Typography variant="body1">
+                {transaction.cashier_name || transaction.sales_agent_name}
               </Typography>
             </Box>
           </Box>
@@ -134,14 +235,88 @@ const TransactionManagement: React.FC = () => {
           Transaction Management
         </Typography>
 
+        {/* Filters and Actions */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Stack direction={isMobile ? 'column' : 'row'} spacing={2} alignItems="center">
+              <TextField
+                label="Search by OR Number or Customer"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                size="small"
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                }}
+                sx={{ minWidth: 250 }}
+              />
+              
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Payment Mode</InputLabel>
+                <Select
+                  value={paymentModeFilter}
+                  onChange={(e) => setPaymentModeFilter(e.target.value)}
+                  label="Payment Mode"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {paymentModes.map((mode) => (
+                    <MenuItem key={mode} value={mode}>
+                      {getPaymentModeLabel(mode)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              <TextField
+                label="Start Date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+              
+              <TextField
+                label="End Date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+              
+              <Button 
+                variant="outlined" 
+                startIcon={<RefreshIcon />} 
+                onClick={handleRefresh}
+                disabled={loading}
+              >
+                Refresh
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
       {/* Transactions */}
       <Card>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Transactions
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              Transactions {totalTransactions > 0 && `(${totalTransactions} total)`}
+            </Typography>
+          </Box>
 
-          {isMobile ? (
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : isMobile ? (
             // Mobile view - Cards
             <Box>
               {transactions.map(renderMobileTransactionCard)}
@@ -157,6 +332,7 @@ const TransactionManagement: React.FC = () => {
                     <TableCell>Amount</TableCell>
                     <TableCell>Payment Mode</TableCell>
                     <TableCell>Transaction Date</TableCell>
+                    {!isMobile && <TableCell>Staff</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -164,7 +340,11 @@ const TransactionManagement: React.FC = () => {
                     <TableRow key={transaction.id}>
                       <TableCell>{transaction.or_number}</TableCell>
                       <TableCell>{transaction.customer_name}</TableCell>
-                      <TableCell>₱{transaction.amount.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                          ₱{transaction.amount.toLocaleString()}
+                        </Typography>
+                      </TableCell>
                       <TableCell>
                         <Chip 
                           label={getPaymentModeLabel(transaction.payment_mode)}
@@ -172,7 +352,12 @@ const TransactionManagement: React.FC = () => {
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>{transaction.transaction_date}</TableCell>
+                      <TableCell>{formatDate(transaction.created_at || transaction.transaction_date)}</TableCell>
+                      {!isMobile && (
+                        <TableCell>
+                          {transaction.cashier_name || transaction.sales_agent_name || 'N/A'}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -180,19 +365,48 @@ const TransactionManagement: React.FC = () => {
             </TableContainer>
           )}
 
-          {transactions.length === 0 && (
+          {transactions.length === 0 && !loading && (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <ReceiptIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
               <Typography variant="h6" color="text.secondary">
-                No transactions recorded
+                {error ? 'Unable to load transactions' : 'No transactions found'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Transactions will appear here once recorded
+                {error ? 'Please try refreshing the page' : 'Transactions will appear here once recorded'}
               </Typography>
+            </Box>
+          )}
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={handlePageChange}
+                color="primary"
+                showFirstButton
+                showLastButton
+              />
             </Box>
           )}
         </CardContent>
       </Card>
+      
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
       </Box>
     </div>
   );

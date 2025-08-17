@@ -279,32 +279,59 @@ const DisplayMonitor: React.FC = () => {
   const fetchQueueData = async () => {
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      console.log('Fetching queue data from:', `${API_BASE_URL}/queue/display-all`);
+      
       const response = await fetch(`${API_BASE_URL}/queue/display-all`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
         }
       });
       
+      console.log('Display queue API response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Display queue data received:', data);
+        
+        // Handle both array and object response formats
+        const queueItems = Array.isArray(data) ? data : data.data || data.queue || [];
+        
         // Transform backend queue data to match frontend interface
-        const transformedData = data.map((item: any) => ({
-          id: item.customer.id,
-          name: item.customer.name,
-          token_number: item.customer.token_number || item.position,
-          queue_status: item.customer.queue_status,
-          priority_flags: item.customer.priority_flags || { senior_citizen: false, pregnant: false, pwd: false },
-          estimated_time: item.estimated_wait_time || 0,
-          counter_id: item.customer.counter_id,
-          counter_name: item.customer.counter_name
-        }));
+        const transformedData = queueItems.map((item: any) => {
+          // Handle different response formats from backend
+          const customer = item.customer || item;
+          return {
+            id: customer.id,
+            name: customer.name,
+            token_number: customer.token_number || item.token_number || item.position || 0,
+            queue_status: customer.queue_status || item.queue_status,
+            priority_flags: customer.priority_flags || { senior_citizen: false, pregnant: false, pwd: false },
+            estimated_time: item.estimated_wait_time || customer.estimated_time || 0,
+            counter_id: customer.counter_id || item.counter_id,
+            counter_name: customer.counter_name || item.counter_name
+          };
+        });
+        
+        console.log('Transformed display queue data:', transformedData);
         setQueueData(transformedData);
+        setError(null);
       } else {
-        setError('Failed to fetch queue data');
+        const errorText = await response.text();
+        console.error('Display queue fetch error:', response.status, errorText);
+        
+        if (response.status === 401) {
+          setError('Authentication required. Please log in again.');
+        } else if (response.status === 403) {
+          setError('Access denied. Insufficient permissions.');
+        } else {
+          setError(`Failed to fetch queue data (${response.status})`);
+        }
       }
     } catch (error) {
       console.error('Error fetching queue data:', error);
-      setError('Error fetching queue data');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(`Network error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -313,18 +340,32 @@ const DisplayMonitor: React.FC = () => {
   const fetchCounters = async () => {
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      console.log('Fetching counters from:', `${API_BASE_URL}/queue/counters/display`);
+      
       const response = await fetch(`${API_BASE_URL}/queue/counters/display`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
         }
       });
       
+      console.log('Counters API response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        setCounters(data); // Already filtered to active counters in backend
+        console.log('Counters data received:', data);
+        
+        // Handle both array and object response formats
+        const countersData = Array.isArray(data) ? data : data.data || data.counters || [];
+        setCounters(countersData); // Already filtered to active counters in backend
+      } else {
+        const errorText = await response.text();
+        console.error('Counters fetch error:', response.status, errorText);
+        // Don't show counter errors to user as they are less critical
       }
     } catch (error) {
       console.error('Error fetching counters:', error);
+      // Silent fail for counters as they're secondary to queue data
     }
   };
 
