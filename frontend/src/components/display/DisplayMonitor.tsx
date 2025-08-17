@@ -282,12 +282,22 @@ const DisplayMonitor: React.FC = () => {
       console.log('DEBUG: Environment variable REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
       console.log('DEBUG: All environment variables starting with REACT_APP:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP')));
       
-      const response = await apiGet('/queue/display-all');
+      // Since REACT_APP_API_URL already includes /api, we use the endpoint directly
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      console.log('DEBUG: Computed API_BASE_URL:', API_BASE_URL);
+      console.log('DEBUG: Final URL will be:', `${API_BASE_URL}/queue/display-all`);
+      
+      const response = await fetch(`${API_BASE_URL}/queue/display-all`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       console.log('Display queue API response status:', response.status);
       
       if (response.ok) {
-        const data = await parseApiResponse(response);
+        const data = await response.json();
         console.log('Display queue data received:', data);
         
         // Handle both array and object response formats
@@ -335,12 +345,20 @@ const DisplayMonitor: React.FC = () => {
 
   const fetchCounters = async () => {
     try {
-      const response = await apiGet('/queue/counters/display');
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      console.log('DEBUG: Counters URL will be:', `${API_BASE_URL}/queue/counters/display`);
+      
+      const response = await fetch(`${API_BASE_URL}/queue/counters/display`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       console.log('Counters API response status:', response.status);
       
       if (response.ok) {
-        const data = await parseApiResponse(response);
+        const data = await response.json();
         console.log('Counters data received:', data);
         
         // Handle both array and object response formats
