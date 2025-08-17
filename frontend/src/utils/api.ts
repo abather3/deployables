@@ -2,6 +2,13 @@
 
 const API_BASE_URL = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL : 'http://localhost:5000/api';
 
+// Debug: Log environment variable loading immediately
+console.log('API Utility Loaded - Environment Check:', {
+  REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+  API_BASE_URL: API_BASE_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
+
 export interface ApiRequestOptions extends RequestInit {
   timeout?: number;
 }
