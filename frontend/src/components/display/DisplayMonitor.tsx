@@ -279,20 +279,9 @@ const DisplayMonitor: React.FC = () => {
 
   const fetchQueueData = async () => {
     try {
-      console.log('DEBUG: Environment variable REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
-      console.log('DEBUG: All environment variables starting with REACT_APP:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP')));
+      console.log('DisplayMonitor: About to call apiGet with endpoint: /queue/display-all');
       
-      // Since REACT_APP_API_URL already includes /api, we use the endpoint directly
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      console.log('DEBUG: Computed API_BASE_URL:', API_BASE_URL);
-      console.log('DEBUG: Final URL will be:', `${API_BASE_URL}/queue/display-all`);
-      
-      const response = await fetch(`${API_BASE_URL}/queue/display-all`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiGet('/queue/display-all');
       
       console.log('Display queue API response status:', response.status);
       
@@ -345,15 +334,9 @@ const DisplayMonitor: React.FC = () => {
 
   const fetchCounters = async () => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      console.log('DEBUG: Counters URL will be:', `${API_BASE_URL}/queue/counters/display`);
+      console.log('DisplayMonitor: About to call apiGet with endpoint: /queue/counters/display');
       
-      const response = await fetch(`${API_BASE_URL}/queue/counters/display`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await apiGet('/queue/counters/display');
       
       console.log('Counters API response status:', response.status);
       
