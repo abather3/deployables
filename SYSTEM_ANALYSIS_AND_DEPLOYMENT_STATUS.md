@@ -156,23 +156,35 @@ const socketConnection = io(SOCKET_URL);
 - `handleSendSMS()` - SMS notifications
 - WebSocket connection for real-time updates
 
-#### 3. **CustomerManagement.tsx** ✅
+#### 3. **CustomerManagement.tsx** ✅ (UPDATED 2025-08-17)
 ```typescript
-// BEFORE (❌ Wrong)
+// BEFORE (❌ Wrong) - Manual fetch with hardcoded URLs
 const response = await fetch(`/api/customers?${params}`);
-
-// AFTER (✅ Fixed)
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-const response = await fetch(`${API_BASE_URL}/customers?${params}`);
+const response = await fetch(`${API_BASE_URL}/customers`, {
+  headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+});
+
+// AFTER (✅ Fixed) - Centralized API utilities
+import { apiGet, apiPost, apiPut, apiDelete } from '../../utils/api';
+const response = await apiGet(`/customers?${params}`);
+const response = await apiPost('/customers', data);
 ```
 **Fixed Functions:**
 - `fetchCustomers()` - Customer data retrieval with pagination/filtering
 - `fetchDropdownOptions()` - Grade and lens type options
-- `handleSubmit()` - Customer registration and updates
+- `handleSubmit()` - Customer registration and updates (now uses apiPost/apiPut)
 - `handleExportCustomer()` - Individual customer exports
-- `confirmDeleteCustomer()` - Customer deletion
-- `handleExportCustomerFormat()` - Export to Excel/PDF/Google Sheets
-- `handleBulkExport()` - Bulk customer data export
+- `confirmDeleteCustomer()` - Customer deletion (now uses apiDelete)
+- `handleExportCustomerFormat()` - Export to Excel/PDF/Google Sheets (now uses apiGet/apiPost)
+- `handleBulkExport()` - Bulk customer data export (now uses apiPost)
+
+**Key Improvements:**
+- ✅ All API calls now use centralized utilities
+- ✅ Consistent error handling and authorization headers
+- ✅ Better success/error messages for export functions
+- ✅ Eliminated hardcoded URL construction
+- ⚠️ **Known Issues**: Google Sheets export (both single and bulk) still experiencing errors
 
 #### 4. **UserManagement.tsx** ✅
 ```typescript
@@ -622,31 +634,42 @@ GET /api/sms/status          - SMS service status
 ```
 
 ---
+## 📊 Current System Status (Updated 2025-08-17)
 
-## 📈 Current System Status
-
-### ✅ Working Components (After Fixes)
-- ✅ **Customer Management** - Registration, editing, search, export
+### ✅ Fully Working Components
+- ✅ **Customer Management** - Registration, editing, search, Excel/PDF export
+  - ⚠️ Google Sheets export has errors (both single and bulk)
 - ✅ **Queue Management** - Queue operations, status updates, reordering
 - ✅ **Display Monitor** - Live queue display, counter status
 - ✅ **User Management** - Admin user operations, role management
 - ✅ **Authentication** - Login, logout, JWT tokens
 - ✅ **Database** - PostgreSQL connection and operations
 - ✅ **Real-time Updates** - WebSocket connections (for fixed components)
+- ✅ **Real-time Updates** - WebSocket connections (for fixed components)
 
-### 🔄 In Progress / Pending
-- 🔄 **SMS Notifications** - Template management and sending
-- 🔄 **Transaction Management** - Payment processing and reporting  
-- 🔄 **Analytics Dashboard** - Historical data and charts
+### ❌ Components with Major Issues (Need Immediate Attention)
+- ❌ **Queue Management** - Data fetching failures, API connection issues
+- ❌ **Transaction Management** - Cannot fetch transaction data, API 404 errors
+- ❌ **Display Monitor** - Not loading queue data properly
+- ❌ **Historical Analysis** - Analytics dashboard failing to load data
+- ❌ **Admin Panel** - Multiple sections not working, API failures
+- ❌ **Google Sheets Export** - Both single customer and bulk export failing
+
+### 🔄 Components Needing API URL Fixes
+- 🔄 **SMS Management** - Template management and sending
 - 🔄 **Counter Management** - Service counter operations
 - 🔄 **Activity Logs** - System audit trail
-- 🔄 **Remaining Components** - Various dashboard and management modules
+- 🔄 **SalesAgentDashboard** - Sales performance metrics
+- 🔄 **CashierDashboard** - Cashier operations interface
+- 🔄 **Enhanced modules** - Various enhanced dashboard components
 
-### ❌ Known Issues
-- ❌ Some components still using relative URLs (being fixed progressively)
-- ❌ WebSocket connections may be unstable during deployment
-- ❌ SMS service may have rate limiting on free tier
-- ❌ File uploads may have size restrictions on free hosting
+### ❌ Critical Issues Requiring Immediate Action
+- ❌ **Major Data Fetching Failures**: Queue Management, Transaction Management, Display Monitor, Historical Analysis, Admin Panel sections are not loading data
+- ❌ **Google Sheets Export Errors**: Both single customer and bulk Google Sheets export functionality failing
+- ❌ **API Connection Issues**: Many components still using relative URLs instead of centralized API utilities
+- ❌ **WebSocket connections may be unstable** during deployment cycles
+- ❌ **SMS service rate limiting** on free tier may affect notifications
+- ❌ **File upload size restrictions** on free hosting tier
 
 ---
 
@@ -693,7 +716,16 @@ GET /api/sms/status          - SMS service status
 
 ## 📝 Change Log
 
-### 2025-08-08 - Major API URL Fixes
+### 2025-08-17 - CustomerManagement API Utilities Migration
+- ✅ **CustomerManagement Complete Overhaul**: Migrated all API calls to use centralized utilities
+- ✅ **Centralized API Pattern**: Replaced manual fetch calls with apiGet, apiPost, apiPut, apiDelete
+- ✅ **Improved Error Handling**: Better error messages and consistent API response handling
+- ✅ **Export Functions Enhanced**: Updated all export functions with proper success/error feedback
+- ⚠️ **Google Sheets Export Issues**: Identified ongoing problems with Google Sheets integration
+- ❌ **Major Component Failures**: Queue Management, Transaction Management, Display Monitor, Historical Analysis, and Admin Panel sections failing to load data
+- 🔄 **Next Priority**: Fix remaining major components with data fetching failures
+
+### 2025-08-08 - Initial API URL Fixes
 - ✅ Fixed DisplayMonitor API calls and data fetching
 - ✅ Fixed QueueManagement complete module with WebSocket
 - ✅ Fixed CustomerManagement CRUD operations and exports  
@@ -753,9 +785,9 @@ npm run dev:backend     # Node.js development server
 
 ---
 
-**Last Updated**: August 8, 2025  
-**Version**: 1.2.0 (Production)  
-**Status**: 🔄 Active Development - API URL Fixes in Progress
+**Last Updated**: August 17, 2025  
+**Version**: 1.3.0 (Production)  
+**Status**: ⚠️ Critical Issues - Major Components Failing Data Fetch
 
 ---
 
