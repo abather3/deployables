@@ -12,7 +12,7 @@ This document provides a comprehensive analysis of issues identified and resolve
 
 ## 🚨 Critical Issues Identified & Resolved
 
-### 1. SMS Templates Database Schema Missing (CRITICAL)
+### 1. SMS Templates Database Schema Missing (CRITICAL) ✅
 
 **Issue:** `column 'template_content' does not exist`
 
@@ -35,6 +35,32 @@ This document provides a comprehensive analysis of issues identified and resolve
 **Files Modified/Created:**
 - `database/migrations_consolidated/005_sms_templates_fix.sql` *(NEW)*
 - `docs/SMS_TEMPLATES_DATABASE_FIX.md` *(DOCUMENTATION)*
+
+### 2. Display Monitor API URL Construction Issues (CRITICAL) ✅
+
+**Issue:** Frontend making requests to wrong API endpoints
+- Requesting: `https://escashop-backend.onrender.com/queue/display-all` ❌
+- Should be: `https://escashop-backend.onrender.com/api/queue/display-all` ✅
+
+**Root Cause:** 
+- Centralized API utility was adding extra `/api` prefix to URLs
+- Environment variable already contained `/api` but utility added another one
+- DisplayMonitor component was using manual fetch instead of centralized utility
+
+**Impact:**
+- Display Monitor showed 404 errors for queue and counter endpoints
+- Queue status and counter information not loading
+- Real-time updates not working properly
+
+**Resolution:** ✅ **RESOLVED**
+- Fixed double `/api` prefix issue in `frontend/src/utils/api.ts`
+- Updated DisplayMonitor to use centralized `apiGet()` utility
+- Added comprehensive debugging logs for API URL tracing
+- Ensured consistent API URL construction across all components
+
+**Files Modified:**
+- `frontend/src/utils/api.ts` *(FIXED)*
+- `frontend/src/components/display/DisplayMonitor.tsx` *(UPDATED)*
 
 ---
 
@@ -145,9 +171,10 @@ npm run migrate
 
 ### Current Deployment Status
 - **Local Environment:** ✅ Fully operational with SMS functionality
-- **Production Environment:** 🔄 Awaiting deployment of latest migration
+- **Production Environment:** ✅ SMS migration deployed, API URL fixes deployed
 - **Database Migrations:** ✅ All migrations prepared and tested
-- **SMS Service:** 🔄 Will be operational post-deployment
+- **SMS Service:** ✅ Operational after migration deployment
+- **Display Monitor:** ✅ Fixed API URL construction issues
 
 ### Expected Production Impact
 - Complete restoration of SMS notification system
