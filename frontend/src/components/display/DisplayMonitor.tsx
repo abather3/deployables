@@ -380,7 +380,7 @@ const DisplayMonitor: React.FC = () => {
   );
 
   const averageWaitTime = queueData.length > 0 
-    ? Math.round(queueData.reduce((sum, item) => sum + item.estimated_time, 0) / queueData.length)
+    ? Math.round(queueData.reduce((sum, item) => sum + (item.estimated_time || 0), 0) / queueData.length)
     : 0;
 
   if (loading) {
