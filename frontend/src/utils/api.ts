@@ -22,6 +22,14 @@ export const apiRequest = async (
   try {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
     
+    // Debug logging for URL construction
+    console.log('API Request Debug:', {
+      endpoint,
+      API_BASE_URL,
+      finalUrl: url,
+      envVar: process.env.REACT_APP_API_URL
+    });
+    
     const response = await fetch(url, {
       ...fetchOptions,
       signal: controller.signal,

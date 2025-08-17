@@ -290,13 +290,16 @@ const CustomerManagement: React.FC = () => {
         ...(dateFilter.end && { endDate: dateFilter.end })
       });
       
+      console.log('CustomerManagement: About to call apiGet with endpoint:', `/customers?${params}`);
       const response = await apiGet(`/customers?${params}`);
+      console.log('CustomerManagement: Response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
         setCustomers(data.customers || []);
         setTotalCustomers(data.pagination?.total || 0);
       } else {
+        console.error('CustomerManagement: Failed response:', response.status, response.statusText);
         setErrorMessage('Failed to fetch customers');
       }
     } catch (error) {
