@@ -393,21 +393,63 @@ export class ExportService {
    * Export single customer to Google Sheets
    */
   static async exportCustomerToGoogleSheets(customerId: number): Promise<any> {
-    const customer = await CustomerService.findById(customerId);
-    if (!customer) {
-      throw new Error('Customer not found');
+    try {
+      console.log(`Starting Google Sheets export for customer ID: ${customerId}`);
+      
+      const customer = await CustomerService.findById(customerId);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      if (!this.GOOGLE_SHEETS_URL) {
+        throw new Error('Google Sheets URL not configured');
+      }
+
+      // Validate Google Sheets URL format
+      if (!this.GOOGLE_SHEETS_URL.includes('script.google.com')) {
+        throw new Error('Invalid Google Sheets URL format. Expected Google Apps Script deployment URL.');
+      }
+
+      console.log(`Sending request to Google Sheets URL: ${this.GOOGLE_SHEETS_URL}`);
+      console.log(`Request payload:`, { action: 'single', customer: { id: customer.id, name: customer.name } });
+
+      const response = await axios.post(this.GOOGLE_SHEETS_URL, {
+        action: 'single',
+        customer: customer
+      }, {
+        timeout: 30000, // 30 second timeout
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log(`Google Sheets API Response:`, response.status, response.data);
+      
+      // Check if the response indicates success
+      if (response.data && response.data.success === false) {
+        throw new Error(`Google Sheets API Error: ${response.data.error || 'Unknown error from Google Sheets'}`);  
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error in exportCustomerToGoogleSheets:', error);
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          console.error('Google Sheets API Response Error:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data
+          });
+          throw new Error(`Google Sheets API Error (${error.response.status}): ${error.response.data?.error || error.response.statusText}`);
+        } else if (error.request) {
+          console.error('Google Sheets API Network Error:', error.message);
+          throw new Error('Failed to connect to Google Sheets API. Please check your internet connection and Google Sheets URL configuration.');
+        }
+      }
+      
+      throw error instanceof Error ? error : new Error('Unknown error occurred during Google Sheets export');
     }
-
-    if (!this.GOOGLE_SHEETS_URL) {
-      throw new Error('Google Sheets URL not configured');
-    }
-
-    const response = await axios.post(this.GOOGLE_SHEETS_URL, {
-      action: 'single',
-      customer: customer
-    });
-
-    return response.data;
   }
 
   /**
@@ -705,26 +747,78 @@ export class ExportService {
    * Export multiple customers to Google Sheets
    */
   static async exportCustomersToGoogleSheets(searchTerm?: string, statusFilter?: string, dateFilter?: { start: string, end: string }): Promise<any> {
-    const filters = {
-      searchTerm,
-      status: statusFilter as any,
-      startDate: dateFilter?.start ? new Date(dateFilter.start) : undefined,
-      endDate: dateFilter?.end ? new Date(dateFilter.end) : undefined
-    };
+    try {
+      console.log('Starting bulk Google Sheets export with filters:', { searchTerm, statusFilter, dateFilter });
+      
+      const filters = {
+        searchTerm,
+        status: statusFilter as any,
+        startDate: dateFilter?.start ? new Date(dateFilter.start) : undefined,
+        endDate: dateFilter?.end ? new Date(dateFilter.end) : undefined
+      };
 
-    const result = await CustomerService.list(filters, 1000, 0);
-    const customers = result.customers;
+      const result = await CustomerService.list(filters, 1000, 0);
+      const customers = result.customers;
+      
+      console.log(`Found ${customers.length} customers for bulk export`);
 
-    if (!this.GOOGLE_SHEETS_URL) {
-      throw new Error('Google Sheets URL not configured');
+      if (customers.length === 0) {
+        throw new Error('No customers found matching the specified criteria');
+      }
+
+      if (!this.GOOGLE_SHEETS_URL) {
+        throw new Error('Google Sheets URL not configured');
+      }
+
+      // Validate Google Sheets URL format
+      if (!this.GOOGLE_SHEETS_URL.includes('script.google.com')) {
+        throw new Error('Invalid Google Sheets URL format. Expected Google Apps Script deployment URL.');
+      }
+
+      console.log(`Sending bulk export request to Google Sheets URL: ${this.GOOGLE_SHEETS_URL}`);
+      console.log(`Request payload summary:`, { 
+        action: 'bulk', 
+        customersCount: customers.length,
+        sampleCustomer: customers.length > 0 ? { id: customers[0].id, name: customers[0].name } : null 
+      });
+
+      const response = await axios.post(this.GOOGLE_SHEETS_URL, {
+        action: 'bulk',
+        customers: customers
+      }, {
+        timeout: 60000, // 60 second timeout for bulk operations
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log(`Google Sheets bulk API Response:`, response.status, response.data);
+      
+      // Check if the response indicates success
+      if (response.data && response.data.success === false) {
+        throw new Error(`Google Sheets API Error: ${response.data.error || 'Unknown error from Google Sheets'}`);  
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error in exportCustomersToGoogleSheets:', error);
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          console.error('Google Sheets bulk API Response Error:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data
+          });
+          throw new Error(`Google Sheets API Error (${error.response.status}): ${error.response.data?.error || error.response.statusText}`);
+        } else if (error.request) {
+          console.error('Google Sheets bulk API Network Error:', error.message);
+          throw new Error('Failed to connect to Google Sheets API. Please check your internet connection and Google Sheets URL configuration.');
+        }
+      }
+      
+      throw error instanceof Error ? error : new Error('Unknown error occurred during bulk Google Sheets export');
     }
-
-    const response = await axios.post(this.GOOGLE_SHEETS_URL, {
-      action: 'bulk',
-      customers: customers
-    });
-
-    return response.data;
   }
 
   /**

@@ -626,15 +626,37 @@ const CustomerManagement: React.FC = () => {
 
   const handleExportCustomerFormat = async (customer: Customer, format: 'excel' | 'pdf' | 'sheets') => {
     try {
+      console.log(`Starting ${format.toUpperCase()} export for customer:`, { id: customer.id, name: customer.name });
+      
       if (format === 'sheets') {
-        // Export to Google Sheets
-        const response = await apiPost(`/customers/${customer.id}/export/sheets`, { customer });
+        // Export to Google Sheets - simplified request (backend extracts customer ID from URL)
+        const response = await apiPost(`/customers/${customer.id}/export/sheets`, {});
         
         if (response.ok) {
           const result = await response.json();
-          setSuccessMessage('Customer data exported to Google Sheets successfully!');
+          console.log('Google Sheets export result:', result);
+          
+          // Check if the response indicates success
+          if (result.success === false) {
+            throw new Error(`Google Sheets Export Error: ${result.error || 'Unknown error from Google Sheets service'}`);
+          }
+          
+          setSuccessMessage(
+            result.spreadsheetUrl 
+              ? `Customer data exported to Google Sheets successfully! ${result.message || ''}` 
+              : 'Customer data exported to Google Sheets successfully!'
+          );
         } else {
-          throw new Error('Failed to export to Google Sheets');
+          // Try to get detailed error message from response
+          let errorMessage = 'Failed to export to Google Sheets';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (parseError) {
+            console.warn('Could not parse error response:', parseError);
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
         }
       } else {
         // Export to Excel or PDF
@@ -650,18 +672,30 @@ const CustomerManagement: React.FC = () => {
           window.URL.revokeObjectURL(url);
           setSuccessMessage(`Customer data exported to ${format.toUpperCase()} successfully!`);
         } else {
-          throw new Error(`Failed to export to ${format.toUpperCase()}`);
+          // Try to get detailed error message from response
+          let errorMessage = `Failed to export to ${format.toUpperCase()}`;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (parseError) {
+            console.warn('Could not parse error response:', parseError);
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
         }
       }
     } catch (error) {
       console.error(`Error exporting customer to ${format}:`, error);
-      setErrorMessage(`Failed to export customer data to ${format.toUpperCase()}`);
+      const errorMessage = error instanceof Error ? error.message : `Failed to export customer data to ${format.toUpperCase()}`;
+      setErrorMessage(errorMessage);
     }
     handleMenuClose();
   };
 
   const handleBulkExport = async (format: 'excel' | 'pdf' | 'sheets') => {
     try {
+      console.log(`Starting bulk ${format.toUpperCase()} export with filters:`, { searchTerm, statusFilter, dateFilter });
+      
       const response = await apiPost(`/customers/export/${format}`, {
         searchTerm,
         statusFilter,
@@ -671,7 +705,18 @@ const CustomerManagement: React.FC = () => {
       if (response.ok) {
         if (format === 'sheets') {
           const result = await response.json();
-          setSuccessMessage('Data exported to Google Sheets successfully!');
+          console.log('Bulk Google Sheets export result:', result);
+          
+          // Check if the response indicates success
+          if (result.success === false) {
+            throw new Error(`Bulk Google Sheets Export Error: ${result.error || 'Unknown error from Google Sheets service'}`);
+          }
+          
+          setSuccessMessage(
+            result.spreadsheetUrl 
+              ? `Data exported to Google Sheets successfully! ${result.message || ''}` 
+              : 'Data exported to Google Sheets successfully!'
+          );
         } else {
           const blob = await response.blob();
           const url = window.URL.createObjectURL(blob);
@@ -683,11 +728,21 @@ const CustomerManagement: React.FC = () => {
           setSuccessMessage(`Data exported to ${format.toUpperCase()} successfully!`);
         }
       } else {
-        throw new Error(`Failed to export data to ${format.toUpperCase()}`);
+        // Try to get detailed error message from response
+        let errorMessage = `Failed to export data to ${format.toUpperCase()}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (parseError) {
+          console.warn('Could not parse bulk export error response:', parseError);
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Error exporting customers:', error);
-      setErrorMessage(`Failed to export customers data to ${format.toUpperCase()}`);
+      const errorMessage = error instanceof Error ? error.message : `Failed to export customers data to ${format.toUpperCase()}`;
+      setErrorMessage(errorMessage);
     }
   };
 
