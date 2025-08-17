@@ -1,6 +1,6 @@
 // API utility functions for making HTTP requests
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : 'http://localhost:5000/api';
 
 export interface ApiRequestOptions extends RequestInit {
   timeout?: number;

@@ -5,6 +5,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useLocation } from 'react-router-dom';
 import { EstimatedTime } from '../../types';
 import { formatEstimatedTime } from '../../utils/formatters';
+import { apiGet, apiPost, apiPut, apiDelete } from '../../utils/api';
 import {
   Box,
   Card,
@@ -289,12 +290,7 @@ const CustomerManagement: React.FC = () => {
         ...(dateFilter.end && { endDate: dateFilter.end })
       });
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/customers?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
+      const response = await apiGet(`/customers?${params}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -313,14 +309,9 @@ const CustomerManagement: React.FC = () => {
 
   const fetchDropdownOptions = async () => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
       const [gradeResponse, lensResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/customers/dropdown/grade-types`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-        }),
-        fetch(`${API_BASE_URL}/customers/dropdown/lens-types`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-        })
+        apiGet('/customers/dropdown/grade-types'),
+        apiGet('/customers/dropdown/lens-types')
       ]);
       
       // Define excluded options
@@ -422,18 +413,10 @@ const CustomerManagement: React.FC = () => {
       };
       
       const isEditing = editingCustomer !== null;
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const url = isEditing ? `${API_BASE_URL}/customers/${editingCustomer.id}` : `${API_BASE_URL}/customers`;
-      const method = isEditing ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: JSON.stringify(submissionData)
-      });
+      const response = isEditing 
+        ? await apiPut(`/customers/${editingCustomer.id}`, submissionData)
+        : await apiPost('/customers', submissionData);
       
       if (response.ok) {
         const result = await response.json();
@@ -570,12 +553,7 @@ const CustomerManagement: React.FC = () => {
 
   const handleExportCustomer = async (customer: Customer) => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/customers/${customer.id}/export`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
+      const response = await apiGet(`/customers/${customer.id}/export`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -628,13 +606,7 @@ const CustomerManagement: React.FC = () => {
     if (!customerToDelete) return;
     
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/customers/${customerToDelete.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
+      const response = await apiDelete(`/customers/${customerToDelete.id}`);
       
       if (response.ok) {
         setSuccessMessage(`Customer ${customerToDelete.name} has been deleted successfully`);
@@ -656,15 +628,7 @@ const CustomerManagement: React.FC = () => {
     try {
       if (format === 'sheets') {
         // Export to Google Sheets
-        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-        const response = await fetch(`${API_BASE_URL}/customers/${customer.id}/export/sheets`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          },
-          body: JSON.stringify({ customer })
-        });
+        const response = await apiPost(`/customers/${customer.id}/export/sheets`, { customer });
         
         if (response.ok) {
           const result = await response.json();
@@ -674,12 +638,7 @@ const CustomerManagement: React.FC = () => {
         }
       } else {
         // Export to Excel or PDF
-        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-        const response = await fetch(`${API_BASE_URL}/customers/${customer.id}/export/${format}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        });
+        const response = await apiGet(`/customers/${customer.id}/export/${format}`);
         
         if (response.ok) {
           const blob = await response.blob();
@@ -703,18 +662,10 @@ const CustomerManagement: React.FC = () => {
 
   const handleBulkExport = async (format: 'excel' | 'pdf' | 'sheets') => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/customers/export/${format}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: JSON.stringify({
-          searchTerm,
-          statusFilter,
-          dateFilter
-        })
+      const response = await apiPost(`/customers/export/${format}`, {
+        searchTerm,
+        statusFilter,
+        dateFilter
       });
       
       if (response.ok) {
@@ -729,11 +680,14 @@ const CustomerManagement: React.FC = () => {
           a.download = `customers-export.${format === 'excel' ? 'xlsx' : 'pdf'}`;
           a.click();
           window.URL.revokeObjectURL(url);
+          setSuccessMessage(`Data exported to ${format.toUpperCase()} successfully!`);
         }
+      } else {
+        throw new Error(`Failed to export data to ${format.toUpperCase()}`);
       }
     } catch (error) {
       console.error('Error exporting customers:', error);
-      setErrorMessage('Failed to export customers data');
+      setErrorMessage(`Failed to export customers data to ${format.toUpperCase()}`);
     }
   };
 
