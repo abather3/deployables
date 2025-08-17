@@ -9,7 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatEstimatedTime, minutesToEstimatedTime } from '../../utils/formatters';
 import { notificationSound } from '../../utils/notificationSound';
 import { formatTokenNumberWithHash } from '../../utils/tokenFormatter';
-import { apiGet } from '../../utils/api';
+import { apiGet, apiPost, apiPut, apiPatch } from '../../utils/api';
 import io from 'socket.io-client';
 
 const SortableTableRow = ({ customer, onServe, onComplete, onProcessing, onSendSMS, onCancel }: { customer: any; onServe: (id: number) => void; onComplete: (id: number) => void; onProcessing: (id: number) => void; onSendSMS: (customer: any) => void; onCancel: (customer: any) => void }) => {
@@ -547,16 +547,8 @@ const QueueManagement = () => {
       
       // Send the new order to the backend
       try {
-        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
         const customerIds = reorderedQueue.map(customer => customer.id);
-        const response = await fetch(`${API_BASE_URL}/queue/reorder`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify({ customerIds })
-        });
+        const response = await apiPut('/queue/reorder', { customerIds });
         
         if (response.ok) {
           setSnackbar({
@@ -582,15 +574,7 @@ const QueueManagement = () => {
 
   const handleServeCustomer = async (id: number) => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/queue/call-customer`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({ customerId: id, counterId: 1 }) // Call specific customer
-      });
+      const response = await apiPost('/queue/call-customer', { customerId: id, counterId: 1 });
       
       if (response.ok) {
         const customer = await response.json();
@@ -624,15 +608,7 @@ const QueueManagement = () => {
 
   const handleCompleteService = async (id: number) => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/queue/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({ customerId: id, counterId: 1 }) // Default counter ID - should be dynamic
-      });
+      const response = await apiPost('/queue/complete', { customerId: id, counterId: 1 });
       
       if (response.ok) {
         const customer = await response.json();
@@ -666,15 +642,7 @@ const QueueManagement = () => {
 
   const handleProcessingStatus = async (id: number) => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/queue/${id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({ status: 'processing' })
-      });
+      const response = await apiPatch(`/queue/${id}/status`, { status: 'processing' });
       
       if (response.ok) {
         const customer = await response.json();
@@ -800,15 +768,7 @@ const QueueManagement = () => {
     if (!customer) return;
 
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/queue/cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({ customerId: customer.id, reason: cancelReason })
-      });
+      const response = await apiPost('/queue/cancel', { customerId: customer.id, reason: cancelReason });
 
       if (response.ok) {
         const cancelledCustomer = await response.json();
@@ -842,15 +802,7 @@ const QueueManagement = () => {
 
   const handleResetQueue = async () => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/queue/reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({ reason: resetReason })
-      });
+      const response = await apiPost('/queue/reset', { reason: resetReason });
 
       if (response.ok) {
         const result = await response.json();
@@ -896,20 +848,12 @@ const QueueManagement = () => {
       
       console.log(`Sending SMS to ${customerName} at ${formattedPhone} using template ${template}`);
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/sms/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({ 
-          customerId,
-          customerName,
-          tokenNumber,
-          phoneNumber: formattedPhone,
-          notificationType: template
-        })
+      const response = await apiPost('/sms/send', {
+        customerId,
+        customerName,
+        tokenNumber,
+        phoneNumber: formattedPhone,
+        notificationType: template
       });
       
       if (response.ok) {
