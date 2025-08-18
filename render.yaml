@@ -42,10 +42,9 @@ services:
   # Frontend
   - type: web
     name: escashop-frontend
-    env: node
+    env: static
     buildCommand: cd frontend && npm ci && NODE_ENV=production REACT_APP_API_URL=https://escashop-backend.onrender.com/api REACT_APP_BUILD_TIME=2025-08-18-03-19 npm run build
-    startCommand: cd frontend && node server.js
-    healthCheckPath: /health
+    publishDir: frontend/build
     envVars:
       - key: NODE_ENV
         value: production
