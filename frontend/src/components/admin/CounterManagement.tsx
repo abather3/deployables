@@ -111,7 +111,7 @@ const CounterManagement: React.FC = () => {
       fetchCounters();
     } catch (error) {
       console.error('Error saving counter:', error);
-      setErrorMessage(error.message || 'Error saving counter');
+      setErrorMessage(error instanceof Error ? error.message : 'Error saving counter');
     }
   };
 
@@ -130,7 +130,7 @@ const CounterManagement: React.FC = () => {
       fetchCounters();
     } catch (error) {
       console.error('Error deleting counter:', error);
-      setErrorMessage(error.message || 'Error deleting counter');
+      setErrorMessage(error instanceof Error ? error.message : 'Error deleting counter');
     }
   };
 
@@ -145,7 +145,7 @@ const CounterManagement: React.FC = () => {
       fetchCounters();
     } catch (error) {
       console.error('Error toggling counter status:', error);
-      setErrorMessage(error.message || 'Error toggling counter status');
+      setErrorMessage(error instanceof Error ? error.message : 'Error toggling counter status');
     }
   };
 
