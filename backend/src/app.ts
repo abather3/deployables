@@ -42,6 +42,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
+// Deployment: 2024-12-19 12:06 UTC - Fixed public queue endpoints auth issue
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
