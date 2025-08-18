@@ -345,8 +345,23 @@ const DisplayMonitor: React.FC = () => {
         console.log('DisplayMonitor: Counters data received:', data);
         console.log('DisplayMonitor: Counters with current customers:', data.filter((c: any) => c.current_customer));
         
+        // Enhanced debugging for counter data
+        console.log('DisplayMonitor: Raw counter response type:', Array.isArray(data) ? 'array' : typeof data);
+        console.log('DisplayMonitor: Counter data structure analysis:');
+        data.forEach((counter: any, index: number) => {
+          console.log(`  Counter ${index + 1}:`, {
+            id: counter.id,
+            name: counter.name,
+            current_customer: counter.current_customer,
+            current_customer_exists: !!counter.current_customer,
+            current_customer_type: typeof counter.current_customer
+          });
+        });
+        
         // Handle both array and object response formats
         const countersData = Array.isArray(data) ? data : data.data || data.counters || [];
+        console.log('DisplayMonitor: Setting counters state with:', countersData.length, 'counters');
+        console.log('DisplayMonitor: Counters being set:', countersData);
         setCounters(countersData); // Already filtered to active counters in backend
       } else {
         const errorText = await response.text();
@@ -379,6 +394,14 @@ const DisplayMonitor: React.FC = () => {
   const priorityCustomers = queueData.filter(item => 
     item.priority_flags.senior_citizen || item.priority_flags.pregnant || item.priority_flags.pwd
   );
+
+  // Debug serving customers count discrepancy
+  console.log('DisplayMonitor: SERVING CUSTOMERS ANALYSIS:', {
+    totalQueueItems: queueData.length,
+    servingCount: servingCustomers.length,
+    servingCustomers: servingCustomers.map(c => ({ id: c.id, name: c.name, token: c.token_number, status: c.queue_status })),
+    allStatuses: queueData.map(c => ({ id: c.id, name: c.name, status: c.queue_status }))
+  });
 
   // Enhanced average wait time calculation with detailed logging and NaN protection
   const averageWaitTime = (() => {
@@ -782,7 +805,14 @@ const DisplayMonitor: React.FC = () => {
               overflow: 'hidden',
               boxSizing: 'border-box'
             }}>
-              {counters.map((counter, index) => (
+              {counters.map((counter, index) => {
+                console.log(`DisplayMonitor: Rendering counter ${index + 1}:`, {
+                  id: counter.id,
+                  name: counter.name,
+                  current_customer: counter.current_customer,
+                  has_customer: !!counter.current_customer
+                });
+                return (
                 <Zoom in timeout={1800 + (index * 200)} key={counter.id}>
                   <Box sx={{ 
                     flex: isMobile ? '1 1 100%' : isTablet ? '1 1 280px' : '1 1 300px', 
@@ -890,7 +920,8 @@ const DisplayMonitor: React.FC = () => {
                     </Card>
                   </Box>
                 </Zoom>
-              ))}
+                );
+              })}
             </Box>
           </Box>
         </Fade>
