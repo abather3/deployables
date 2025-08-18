@@ -26,9 +26,9 @@ export class TransactionService {
     const query = `
       INSERT INTO transactions (
         customer_id, or_number, amount, payment_mode, 
-        sales_agent_id, cashier_id, transaction_date, paid_amount, payment_status
+        sales_agent_id, cashier_id, transaction_date, paid_amount, balance_amount, payment_status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, 0, 'unpaid')
+      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, 0, $3, 'unpaid')
       RETURNING *
     `;
 

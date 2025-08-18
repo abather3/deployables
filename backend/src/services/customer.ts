@@ -376,9 +376,9 @@ export class CustomerService {
     const query = `
       INSERT INTO transactions (
         customer_id, or_number, amount, payment_mode, 
-        sales_agent_id, cashier_id, transaction_date, paid_amount, payment_status
+        sales_agent_id, cashier_id, transaction_date, paid_amount, balance_amount, payment_status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7, $8, $9)
     `;
 
     const values = [
@@ -389,6 +389,7 @@ export class CustomerService {
       salesAgentId,
       null, // no cashier for initial transaction
       0, // paid_amount = 0 (still unpaid)
+      amount, // balance_amount = full amount (since nothing paid yet)
       PaymentStatus.UNPAID // status = unpaid
     ];
 
