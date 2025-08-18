@@ -685,7 +685,7 @@ router.post('/init-historical-tables', requireRole([UserRole.ADMIN]), async (req
     res.status(500).json({ 
       success: false, 
       error: 'Failed to initialize historical analytics tables',
-      details: error.message
+      details: error instanceof Error ? error.message : String(error)
     });
   }
 });
