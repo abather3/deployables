@@ -191,9 +191,9 @@ const DisplayMonitor: React.FC = () => {
     if (!socket) return;
 
     const handleQueueUpdate = (data: any) => {
-      console.log('Queue update received:', data);
+      console.log('Queue update received via WebSocket:', data);
       
-      // Update queue data
+      // Update queue data with validation
       if (data.queue) {
         const transformedData = data.queue.map((item: any) => ({
           id: item.customer?.id || item.id,
@@ -205,6 +205,11 @@ const DisplayMonitor: React.FC = () => {
           counter_id: item.customer?.counter_id || item.counter_id,
           counter_name: item.customer?.counter_name || item.counter_name
         }));
+        
+        // Log WebSocket data transformation
+        const wsServingCount = transformedData.filter(item => item.queue_status === 'serving').length;
+        console.log(`WebSocket update: ${wsServingCount} serving customers`);
+        
         setQueueData(transformedData);
         
         // Check for newly serving customers and trigger sound
@@ -229,6 +234,7 @@ const DisplayMonitor: React.FC = () => {
       
       // Update counters if provided
       if (data.counters) {
+        console.log('WebSocket counter update received:', data.counters.length, 'counters');
         setCounters(data.counters);
       }
       
@@ -400,8 +406,21 @@ const DisplayMonitor: React.FC = () => {
     totalQueueItems: queueData.length,
     servingCount: servingCustomers.length,
     servingCustomers: servingCustomers.map(c => ({ id: c.id, name: c.name, token: c.token_number, status: c.queue_status })),
-    allStatuses: queueData.map(c => ({ id: c.id, name: c.name, status: c.queue_status }))
+    allStatuses: queueData.map(c => ({ id: c.id, name: c.name, status: c.queue_status })),
+    countersWithCustomers: counters.filter(c => c.current_customer).length,
+    timestamp: new Date().toISOString()
   });
+  
+  // Data consistency check: serving customers should match counter assignments
+  const countersWithCustomers = counters.filter(c => c.current_customer);
+  if (servingCustomers.length !== countersWithCustomers.length) {
+    console.warn('⚠️ DATA INCONSISTENCY DETECTED:');
+    console.warn(`- Queue shows ${servingCustomers.length} serving customers`);
+    console.warn(`- Counters show ${countersWithCustomers.length} assigned customers`);
+    console.warn('- This may indicate stale WebSocket data or API sync issues');
+    console.warn('- Queue data source: API /queue/display-all');
+    console.warn('- Counter data source: API /queue/counters/display');
+  }
 
   // Enhanced average wait time calculation with detailed logging and NaN protection
   const averageWaitTime = (() => {
