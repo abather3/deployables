@@ -78,7 +78,16 @@ export class TransactionService {
   static async findById(id: number): Promise<Transaction | null> {
     const query = `
 SELECT 
-        t.*, 
+        t.id,
+        t.customer_id,
+        t.or_number,
+        CAST(t.amount AS NUMERIC)::FLOAT as amount,
+        t.payment_mode,
+        t.sales_agent_id,
+        t.cashier_id,
+        t.transaction_date,
+        t.created_at,
+        t.updated_at,
         CAST(t.paid_amount AS NUMERIC)::FLOAT as paid_amount, 
         CAST(t.balance_amount AS NUMERIC)::FLOAT as balance_amount, 
         t.payment_status,
@@ -99,7 +108,16 @@ SELECT
   static async findByOrNumber(orNumber: string): Promise<Transaction | null> {
     const query = `
 SELECT 
-        t.*, 
+        t.id,
+        t.customer_id,
+        t.or_number,
+        CAST(t.amount AS NUMERIC)::FLOAT as amount,
+        t.payment_mode,
+        t.sales_agent_id,
+        t.cashier_id,
+        t.transaction_date,
+        t.created_at,
+        t.updated_at,
         CAST(t.paid_amount AS NUMERIC)::FLOAT as paid_amount, 
         CAST(t.balance_amount AS NUMERIC)::FLOAT as balance_amount, 
         t.payment_status,
@@ -133,7 +151,16 @@ SELECT
       
     let query = `
 SELECT 
-        t.*, 
+        t.id,
+        t.customer_id,
+        t.or_number,
+        CAST(t.amount AS NUMERIC)::FLOAT as amount,
+        t.payment_mode,
+        t.sales_agent_id,
+        t.cashier_id,
+        t.transaction_date,
+        t.created_at,
+        t.updated_at,
         ${paymentFields}
         c.name as customer_name,
         c.contact_number as customer_contact,
