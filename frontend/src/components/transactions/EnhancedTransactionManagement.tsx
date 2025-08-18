@@ -1143,7 +1143,7 @@ const EnhancedTransactionManagement: React.FC = () => {
                 Total Amount
               </Typography>
               <Typography variant="h6" color="primary">
-                ₱{transaction.amount.toLocaleString()}
+                {formatCurrency(transaction.amount)}
               </Typography>
             </Box>
             <Box sx={{ textAlign: 'right' }}>
@@ -1163,7 +1163,7 @@ const EnhancedTransactionManagement: React.FC = () => {
                 Paid Amount
               </Typography>
               <Typography variant="body1" color="success.main">
-                ₱{transaction.paid_amount.toLocaleString()}
+                {formatCurrency(transaction.paid_amount)}
               </Typography>
             </Box>
             <Box sx={{ textAlign: 'right' }}>
@@ -1171,7 +1171,7 @@ const EnhancedTransactionManagement: React.FC = () => {
                 Balance
               </Typography>
               <Typography variant="body1" color={transaction.balance_amount > 0 ? 'error.main' : 'success.main'}>
-                ₱{transaction.balance_amount.toLocaleString()}
+                {formatCurrency(transaction.balance_amount)}
               </Typography>
             </Box>
           </Box>
@@ -1234,7 +1234,7 @@ const EnhancedTransactionManagement: React.FC = () => {
               <TableRow key={transaction.id}>
                 <TableCell>{transaction.or_number}</TableCell>
                 <TableCell>{transaction.customer_name}</TableCell>
-                <TableCell>₱{transaction.amount.toLocaleString()}</TableCell>
+                <TableCell>{formatCurrency(transaction.amount)}</TableCell>
                 <TableCell>
                   <Chip 
                     label={getPaymentModeLabel(transaction.payment_mode)}
@@ -1252,10 +1252,10 @@ const EnhancedTransactionManagement: React.FC = () => {
                 <TableCell>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                     <Typography variant="body2" color="success.main">
-                      Paid: ₱{transaction.paid_amount.toLocaleString()}
+                      Paid: {formatCurrency(transaction.paid_amount)}
                     </Typography>
                     <Typography variant="body2" color={transaction.balance_amount > 0 ? 'error.main' : 'success.main'}>
-                      Balance: ₱{transaction.balance_amount.toLocaleString()}
+                      Balance: {formatCurrency(transaction.balance_amount)}
                     </Typography>
                   </Box>
                 </TableCell>
