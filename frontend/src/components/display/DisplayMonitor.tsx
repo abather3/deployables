@@ -294,6 +294,20 @@ const DisplayMonitor: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('Display queue data received:', data);
+        console.log('DisplayMonitor: RAW API RESPONSE ANALYSIS:');
+        console.log('- Response type:', Array.isArray(data) ? 'array' : typeof data);
+        console.log('- Response length:', Array.isArray(data) ? data.length : 'N/A');
+        if (Array.isArray(data)) {
+          data.forEach((item, index) => {
+            console.log(`  Item ${index + 1}:`, {
+              id: item.customer?.id || item.id,
+              name: item.customer?.name || item.name,
+              status: item.customer?.queue_status || item.queue_status,
+              token: item.customer?.token_number || item.token_number,
+              raw_item: item
+            });
+          });
+        }
         
         // Handle both array and object response formats
         const queueItems = Array.isArray(data) ? data : data.data || data.queue || [];
