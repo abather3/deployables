@@ -34,6 +34,7 @@ import {
   Download as DownloadIcon,
   Clear as ClearIcon
 } from '@mui/icons-material';
+import { authenticatedApiRequest, parseApiResponse } from '../../utils/api';
 
 interface ActivityLog {
   id: number;
@@ -100,19 +101,12 @@ const ActivityLogs: React.FC = () => {
       
       const params = new URLSearchParams(queryParams);
 
-      const response = await fetch(`/api/admin/activity-logs?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+      const response = await authenticatedApiRequest(`/admin/activity-logs?${params}`, {
+        method: 'GET'
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setLogs(data.logs);
-        setTotalPages(Math.ceil(data.pagination.total / data.pagination.per_page));
-      } else {
-        throw new Error('Failed to fetch activity logs');
-      }
+      const data = await parseApiResponse(response);
+      setLogs(data.logs);
+      setTotalPages(Math.ceil(data.pagination.total / data.pagination.per_page));
     } catch (error) {
       console.error('Error fetching activity logs:', error);
       setSnackbar({
@@ -173,10 +167,8 @@ const ActivityLogs: React.FC = () => {
       });
       
       const params = new URLSearchParams(queryParams);
-      const response = await fetch(`/api/admin/activity-logs/export?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+      const response = await authenticatedApiRequest(`/admin/activity-logs/export?${params}`, {
+        method: 'GET'
       });
 
       if (response.ok) {
