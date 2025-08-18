@@ -61,13 +61,23 @@ const allowedOrigins = [
   'http://localhost:3001'
 ];
 
+console.log('🌐 [CORS DEBUG] Allowed origins:', allowedOrigins);
+console.log('🌐 [CORS DEBUG] FRONTEND_URL from config:', config.FRONTEND_URL);
+
 app.use(cors({
   origin: (origin, callback) => {
+    console.log(`🔍 [CORS DEBUG] Request from origin: '${origin}'`);
+    console.log(`🔍 [CORS DEBUG] Checking against allowed origins:`, allowedOrigins);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log(`✅ [CORS DEBUG] Allowing request with no origin`);
+      return callback(null, true);
+    }
     
     // Check exact matches
     if (allowedOrigins.includes(origin)) {
+      console.log(`✅ [CORS DEBUG] Origin '${origin}' found in allowed origins - ALLOWED`);
       return callback(null, true);
     }
     
@@ -76,12 +86,15 @@ app.use(cors({
       if (allowedOrigin.includes('*')) {
         const pattern = allowedOrigin.replace('*', '[a-zA-Z0-9-]+');
         const regex = new RegExp(`^${pattern}$`);
+        console.log(`🔍 [CORS DEBUG] Testing pattern '${allowedOrigin}' -> regex '${regex}' against '${origin}'`);
         if (regex.test(origin)) {
+          console.log(`✅ [CORS DEBUG] Origin '${origin}' matches pattern '${allowedOrigin}' - ALLOWED`);
           return callback(null, true);
         }
       }
     }
     
+    console.log(`❌ [CORS DEBUG] Origin '${origin}' NOT ALLOWED`);
     console.log(`CORS blocked request from origin: ${origin}`);
     callback(new Error('Not allowed by CORS'), false);
   },
