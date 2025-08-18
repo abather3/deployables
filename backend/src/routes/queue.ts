@@ -7,6 +7,7 @@ import {
   requireProcessingView,
   requireServeToProcessing,
   requireForcedTransitions,
+  requireAdmin,
   logActivity 
 } from '../middleware/auth';
 import { AuthRequest, QueueStatus } from '../types';
@@ -431,6 +432,130 @@ router.get('/public/counters/display', logActivity('list_public_display_counters
     res.json(counters);
   } catch (error) {
     console.error('Error listing public display counters:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Fix serving customers counter assignment endpoint
+router.post('/admin/fix-serving-counter-assignments', authenticateToken, requireAdmin, logActivity('fix_serving_counter_assignments'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    console.log('Starting serving customers counter assignment fix...');
+    
+    // Get all serving customers
+    const servingCustomers = await pool.query(`
+      SELECT id, name, token_number, queue_status, created_at
+      FROM customers 
+      WHERE queue_status = 'serving'
+      ORDER BY created_at ASC
+    `);
+    
+    // Get current counter assignments
+    const counterAssignments = await pool.query(`
+      SELECT 
+        c.id as counter_id,
+        c.name as counter_name,
+        c.current_customer_id
+      FROM counters c
+      WHERE c.is_active = true
+      ORDER BY c.display_order ASC, c.name ASC
+    `);
+    
+    // Get available counters (no current customer assigned)
+    const availableCounters = await pool.query(`
+      SELECT id, name, display_order
+      FROM counters 
+      WHERE is_active = true AND current_customer_id IS NULL
+      ORDER BY display_order ASC, name ASC
+    `);
+    
+    // Find unassigned serving customers
+    const assignedCustomerIds = counterAssignments.rows
+      .filter(c => c.current_customer_id)
+      .map(c => c.current_customer_id);
+    
+    const unassignedServing = servingCustomers.rows.filter(customer => 
+      !assignedCustomerIds.includes(customer.id)
+    );
+    
+    console.log(`Found ${servingCustomers.rows.length} serving customers`);
+    console.log(`Found ${unassignedServing.length} unassigned serving customers`);
+    console.log(`Found ${availableCounters.rows.length} available counters`);
+    
+    if (unassignedServing.length === 0) {
+      res.json({ 
+        success: true, 
+        message: 'All serving customers are already assigned to counters',
+        stats: {
+          servingCustomers: servingCustomers.rows.length,
+          unassignedServing: 0,
+          availableCounters: availableCounters.rows.length,
+          assignmentsMade: 0
+        }
+      });
+      return;
+    }
+    
+    if (availableCounters.rows.length === 0) {
+      res.json({ 
+        success: false, 
+        message: 'No available counters to assign customers to',
+        stats: {
+          servingCustomers: servingCustomers.rows.length,
+          unassignedServing: unassignedServing.length,
+          availableCounters: 0,
+          assignmentsMade: 0
+        }
+      });
+      return;
+    }
+    
+    // Assign customers to counters
+    const client = await pool.connect();
+    let assignmentsMade = 0;
+    
+    try {
+      await client.query('BEGIN');
+      
+      const assignmentsToMake = Math.min(unassignedServing.length, availableCounters.rows.length);
+      
+      for (let i = 0; i < assignmentsToMake; i++) {
+        const customer = unassignedServing[i];
+        const counter = availableCounters.rows[i];
+        
+        console.log(`Assigning customer "${customer.name}" (ID: ${customer.id}) to "${counter.name}" (ID: ${counter.id})`);
+        
+        await client.query(`
+          UPDATE counters 
+          SET current_customer_id = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [customer.id, counter.id]);
+        
+        assignmentsMade++;
+      }
+      
+      await client.query('COMMIT');
+      console.log(`Successfully made ${assignmentsMade} counter assignments`);
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Successfully assigned ${assignmentsMade} serving customers to counters`,
+      stats: {
+        servingCustomers: servingCustomers.rows.length,
+        unassignedServing: unassignedServing.length,
+        availableCounters: availableCounters.rows.length,
+        assignmentsMade
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fixing serving customer counter assignments:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
