@@ -22,7 +22,28 @@ export class TransactionService {
       sales_agent_id,
       cashier_id
     } = transactionData;
+    
+    // If amount is zero or not provided, try to get it from customer payment_info
+    let finalAmount = amount;
+    if (!finalAmount || finalAmount <= 0) {
+      try {
+        const customerQuery = `SELECT payment_info FROM customers WHERE id = $1`;
+        const customerResult = await pool.query(customerQuery, [customer_id]);
+        
+        if (customerResult.rows.length > 0 && customerResult.rows[0].payment_info) {
+          const paymentInfo = customerResult.rows[0].payment_info;
+          if (paymentInfo.amount && paymentInfo.amount > 0) {
+            finalAmount = paymentInfo.amount;
+            console.log(`Retrieved amount ${finalAmount} from customer payment_info for transaction creation`);
+          }
+        }
+      } catch (error) {
+        console.error('Error retrieving customer payment_info amount:', error);
+        // Continue with the original amount if there's an error
+      }
+    }
 
+    // Ensure we have a valid balance_amount that matches the amount
     const query = `
       INSERT INTO transactions (
         customer_id, or_number, amount, payment_mode, 
@@ -35,7 +56,7 @@ export class TransactionService {
     const values = [
       customer_id,
       or_number,
-      amount,
+      finalAmount, // Use the potentially retrieved amount
       payment_mode,
       sales_agent_id,
       cashier_id
@@ -216,6 +237,11 @@ SELECT
     const query = `
       UPDATE transactions
       SET paid_amount = COALESCE((
+        SELECT SUM(amount)
+        FROM payment_settlements
+        WHERE transaction_id = $1
+      ), 0),
+      balance_amount = amount - COALESCE((
         SELECT SUM(amount)
         FROM payment_settlements
         WHERE transaction_id = $1
