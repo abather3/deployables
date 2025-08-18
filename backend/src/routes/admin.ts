@@ -192,6 +192,95 @@ router.get('/health', authenticateToken, requireAdmin, logActivity('system_healt
   }
 });
 
+// Fix existing transactions with zero amounts
+router.post('/fix-transactions', authenticateToken, requireAdmin, logActivity('fix_transactions'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { action } = req.body;
+    
+    if (action !== 'fix_balance_amounts') {
+      res.status(400).json({ error: 'Invalid action' });
+      return;
+    }
+
+    console.log(`[ADMIN_FIX] ${req.user?.full_name} initiated transaction balance fix`);
+
+    // Step 1: Check current state
+    const checkQuery = `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN amount = 0 OR amount IS NULL THEN 1 END) as zero_amounts,
+        COUNT(CASE WHEN balance_amount = 0 OR balance_amount IS NULL THEN 1 END) as zero_balance
+      FROM transactions
+    `;
+    
+    const checkResult = await pool.query(checkQuery);
+    const beforeStats = checkResult.rows[0];
+
+    console.log(`[ADMIN_FIX] Before fix - Total: ${beforeStats.total}, Zero amounts: ${beforeStats.zero_amounts}, Zero balance: ${beforeStats.zero_balance}`);
+
+    // Step 2: Fix transactions with zero amounts by getting the amount from customer payment_info
+    const fixAmountsQuery = `
+      UPDATE transactions 
+      SET amount = (
+        SELECT COALESCE((c.payment_info->>'amount')::numeric, 1500)
+        FROM customers c 
+        WHERE c.id = transactions.customer_id
+      )
+      WHERE amount = 0 OR amount IS NULL
+    `;
+    
+    const fixAmountsResult = await pool.query(fixAmountsQuery);
+    console.log(`[ADMIN_FIX] Fixed ${fixAmountsResult.rowCount} transactions with zero amounts`);
+
+    // Step 3: Fix balance amounts
+    const fixBalanceQuery = `
+      UPDATE transactions 
+      SET balance_amount = amount - COALESCE(paid_amount, 0)
+      WHERE balance_amount = 0 
+         OR balance_amount IS NULL 
+         OR balance_amount != (amount - COALESCE(paid_amount, 0))
+    `;
+    
+    const fixBalanceResult = await pool.query(fixBalanceQuery);
+    console.log(`[ADMIN_FIX] Fixed ${fixBalanceResult.rowCount} transactions with incorrect balance amounts`);
+
+    // Step 4: Verify the fix
+    const verifyResult = await pool.query(checkQuery);
+    const afterStats = verifyResult.rows[0];
+
+    console.log(`[ADMIN_FIX] After fix - Total: ${afterStats.total}, Zero amounts: ${afterStats.zero_amounts}, Zero balance: ${afterStats.zero_balance}`);
+
+    // Step 5: Get sample of fixed transactions
+    const sampleQuery = `
+      SELECT 
+        id, or_number, amount, paid_amount, balance_amount, payment_status,
+        (SELECT name FROM customers WHERE id = transactions.customer_id) as customer_name
+      FROM transactions 
+      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+      ORDER BY created_at DESC
+      LIMIT 5
+    `;
+    
+    const sampleResult = await pool.query(sampleQuery);
+
+    res.json({
+      success: true,
+      message: 'Transaction amounts fixed successfully',
+      stats: {
+        before: beforeStats,
+        after: afterStats,
+        fixed_amounts: fixAmountsResult.rowCount,
+        fixed_balance: fixBalanceResult.rowCount
+      },
+      sample_transactions: sampleResult.rows
+    });
+
+  } catch (error) {
+    console.error('Error fixing transactions:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Dropdown Management - Grade Types
 router.get('/dropdowns/grade-types', authenticateToken, requireAdmin, logActivity('list_grade_types'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
