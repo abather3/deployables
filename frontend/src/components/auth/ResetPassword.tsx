@@ -13,6 +13,26 @@ interface TokenValidation {
   name?: string;
 }
 
+// Add CSS animation keyframes if not available
+const spinKeyframes = `
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+// Inject styles if not already present
+if (!document.querySelector('#reset-password-styles')) {
+  const style = document.createElement('style');
+  style.id = 'reset-password-styles';
+  style.textContent = spinKeyframes;
+  document.head.appendChild(style);
+}
+
 const ResetPassword: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -40,6 +60,10 @@ const ResetPassword: React.FC = () => {
 
   const validateToken = async () => {
     try {
+      console.log('🔍 Validating reset token:', token);
+      console.log('🌍 Environment:', process.env.NODE_ENV);
+      console.log('🔗 API URL:', process.env.REACT_APP_API_URL);
+      
       const response = await apiRequest('/api/auth/verify-reset-token', {
         method: 'POST',
         headers: {
@@ -153,10 +177,10 @@ const ResetPassword: React.FC = () => {
 
   if (isValidating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Validating reset link...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' }}>
+        <div className="text-center" style={{ textAlign: 'center' }}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" style={{ width: '48px', height: '48px', border: '2px solid #e5e7eb', borderBottom: '2px solid #2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
+          <p className="mt-4 text-gray-600" style={{ marginTop: '16px', color: '#4b5563' }}>Validating reset link...</p>
         </div>
       </div>
     );
