@@ -476,6 +476,74 @@ router.put('/counters/:id', authenticateToken, requireCashierOrAdmin, logActivit
 });
 
 // Manual queue reordering
+// Fix counter assignments for production
+router.post('/fix-counter-assignments', authenticateToken, requireCashierOrAdmin, logActivity('fix_counter_assignments'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    console.log('🔧 Fixing counter assignments...');
+
+    // 1. Get serving customers that need counter assignments
+    const servingCustomersQuery = `
+      SELECT c.id, c.name, c.token_number, c.created_at
+      FROM customers c
+      LEFT JOIN counters co ON co.current_customer_id = c.id
+      WHERE c.queue_status = 'serving' AND co.current_customer_id IS NULL
+      ORDER BY c.created_at ASC
+    `;
+    const servingCustomers = await pool.query(servingCustomersQuery);
+
+    // 2. Get available counters
+    const availableCountersQuery = `
+      SELECT id, name 
+      FROM counters 
+      WHERE is_active = true AND current_customer_id IS NULL
+      ORDER BY id ASC
+    `;
+    const availableCounters = await pool.query(availableCountersQuery);
+
+    if (servingCustomers.rows.length === 0) {
+      res.json({ message: 'No serving customers need counter assignments', assignments: [] });
+      return;
+    }
+
+    if (availableCounters.rows.length === 0) {
+      res.status(400).json({ error: 'No available counters for assignment' });
+      return;
+    }
+
+    // 3. Make assignments
+    const assignments = [];
+    const assignmentsToMake = Math.min(servingCustomers.rows.length, availableCounters.rows.length);
+
+    for (let i = 0; i < assignmentsToMake; i++) {
+      const customer = servingCustomers.rows[i];
+      const counter = availableCounters.rows[i];
+
+      await pool.query(
+        'UPDATE counters SET current_customer_id = $1 WHERE id = $2',
+        [customer.id, counter.id]
+      );
+
+      assignments.push({
+        customerId: customer.id,
+        customerName: customer.name,
+        customerToken: customer.token_number,
+        counterId: counter.id,
+        counterName: counter.name
+      });
+
+      console.log(`✅ Assigned Customer ${customer.id} (${customer.name}) to Counter ${counter.id} (${counter.name})`);
+    }
+
+    res.json({
+      message: `Successfully assigned ${assignments.length} customers to counters`,
+      assignments
+    });
+  } catch (error) {
+    console.error('Error fixing counter assignments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.put('/reorder', authenticateToken, requireCashierOrAdmin, logActivity('reorder_queue'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { customerIds } = req.body;
