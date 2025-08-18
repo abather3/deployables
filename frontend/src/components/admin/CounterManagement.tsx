@@ -28,6 +28,7 @@ import {
   Delete as DeleteIcon,
   Store as CounterIcon
 } from '@mui/icons-material';
+import { authenticatedApiRequest } from '../../utils/api';
 
 interface Counter {
   id: number;
@@ -52,21 +53,13 @@ const CounterManagement: React.FC = () => {
 
   const fetchCounters = async () => {
     try {
-      const response = await fetch('/api/admin/counters', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+      const data = await authenticatedApiRequest('/admin/counters', {
+        method: 'GET'
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCounters(data);
-      } else {
-        setErrorMessage('Failed to fetch counters');
-      }
+      setCounters(data);
     } catch (error) {
       console.error('Error fetching counters:', error);
-      setErrorMessage('Error fetching counters');
+      setErrorMessage('Failed to fetch counters');
     } finally {
       setLoading(false);
     }
@@ -98,15 +91,11 @@ const CounterManagement: React.FC = () => {
     try {
       const method = editingCounter ? 'PUT' : 'POST';
       const url = editingCounter 
-        ? `/api/admin/counters/${editingCounter.id}`
-        : '/api/admin/counters';
+        ? `/admin/counters/${editingCounter.id}`
+        : '/admin/counters';
 
-      const response = await fetch(url, {
+      await authenticatedApiRequest(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
         body: JSON.stringify({
           name: counterName.trim(),
           displayOrder: 0,
@@ -114,18 +103,13 @@ const CounterManagement: React.FC = () => {
         })
       });
 
-      if (response.ok) {
-        const message = editingCounter ? 'Counter updated successfully' : 'Counter created successfully';
-        setSuccessMessage(message);
-        handleCloseDialog();
-        fetchCounters();
-      } else {
-        const error = await response.json();
-        setErrorMessage(error.message || 'Error saving counter');
-      }
+      const message = editingCounter ? 'Counter updated successfully' : 'Counter created successfully';
+      setSuccessMessage(message);
+      handleCloseDialog();
+      fetchCounters();
     } catch (error) {
       console.error('Error saving counter:', error);
-      setErrorMessage('Error saving counter');
+      setErrorMessage(error.message || 'Error saving counter');
     }
   };
 
@@ -135,45 +119,29 @@ const CounterManagement: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/api/admin/counters/${counter.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+      await authenticatedApiRequest(`/admin/counters/${counter.id}`, {
+        method: 'DELETE'
       });
 
-      if (response.ok) {
-        setSuccessMessage('Counter deleted successfully');
-        fetchCounters();
-      } else {
-        const error = await response.json();
-        setErrorMessage(error.message || 'Error deleting counter');
-      }
+      setSuccessMessage('Counter deleted successfully');
+      fetchCounters();
     } catch (error) {
       console.error('Error deleting counter:', error);
-      setErrorMessage('Error deleting counter');
+      setErrorMessage(error.message || 'Error deleting counter');
     }
   };
 
   const handleToggleActive = async (counter: Counter) => {
     try {
-      const response = await fetch(`/api/admin/counters/${counter.id}/toggle`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
+      await authenticatedApiRequest(`/admin/counters/${counter.id}/toggle`, {
+        method: 'PUT'
       });
 
-      if (response.ok) {
-        setSuccessMessage(`Counter ${counter.is_active ? 'deactivated' : 'activated'} successfully`);
-        fetchCounters();
-      } else {
-        const error = await response.json();
-        setErrorMessage(error.message || 'Error toggling counter status');
-      }
+      setSuccessMessage(`Counter ${counter.is_active ? 'deactivated' : 'activated'} successfully`);
+      fetchCounters();
     } catch (error) {
       console.error('Error toggling counter status:', error);
-      setErrorMessage('Error toggling counter status');
+      setErrorMessage(error.message || 'Error toggling counter status');
     }
   };
 
