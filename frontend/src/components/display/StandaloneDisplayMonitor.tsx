@@ -150,7 +150,7 @@ const StandaloneDisplayMonitor: React.FC = () => {
       console.log('StandaloneDisplayMonitor: Auth token:', authToken ? 'Present' : 'Missing');
       console.log('StandaloneDisplayMonitor: API Base URL from env:', process.env.REACT_APP_API_URL);
       
-      const response = await apiGet('/queue/display-all');
+      const response = await apiGet('/queue/public/display-all');
       console.log('StandaloneDisplayMonitor: Queue API response status:', response.status);
       
       if (!response.ok) {
@@ -198,7 +198,7 @@ const StandaloneDisplayMonitor: React.FC = () => {
     
     try {
       console.log('StandaloneDisplayMonitor: Fetching counters from /queue/counters/display');
-      const response = await apiGet('/queue/counters/display');
+      const response = await apiGet('/queue/public/counters/display');
       console.log('StandaloneDisplayMonitor: Counters API response status:', response.status);
       
       if (!response.ok) {

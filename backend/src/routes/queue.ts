@@ -1,4 +1,4 @@
-import express, { Router, Response } from 'express';
+import express, { Router, Request, Response } from 'express';
 import { QueueService, CounterService } from '../services/queue';
 import { DisplayService } from '../services/displayService';
 import { 
@@ -263,6 +263,15 @@ router.get('/display-all', authenticateToken, logActivity('get_display_all'), as
     // Use DisplayService.getDisplayQueue() method that filters out processing records
     const customers = await DisplayService.getDisplayQueue();
     
+    console.log('Display queue data retrieved:', {
+      count: customers.length,
+      items: customers.map(c => ({ 
+        id: c.customer_id, 
+        name: c.customer?.name, 
+        estimated_time: c.estimated_wait_time 
+      }))
+    });
+    
     // Internal calculation - not exposed in response
     // Calculate service time from completed customers (served - called)
     const servedCustomersQuery = `
@@ -296,9 +305,31 @@ router.get('/display-all', authenticateToken, logActivity('get_display_all'), as
   }
 });
 
+// Public endpoint for display monitor - no authentication required
+router.get('/public/display-all', logActivity('get_public_display_all'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Use DisplayService.getDisplayQueue() method that filters out processing records
+    const customers = await DisplayService.getDisplayQueue();
+    
+    console.log('Public display queue data retrieved:', {
+      count: customers.length,
+      items: customers.map(c => ({ 
+        id: c.customer_id, 
+        name: c.customer?.name, 
+        estimated_time: c.estimated_wait_time 
+      }))
+    });
+
+    res.json(customers);
+  } catch (error) {
+    console.error('Error getting public display all data:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Explanation: The average service time is calculated internally and logged, but not sent in the response.
 
-// Public counters endpoint for Display Monitor (no admin role required)
+// Counters endpoint for Display Monitor (authenticated)
 router.get('/counters/display', authenticateToken, logActivity('list_display_counters'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const query = `
@@ -319,6 +350,16 @@ router.get('/counters/display', authenticateToken, logActivity('list_display_cou
     
     const result = await pool.query(query);
     
+    console.log('Display counters query result:', {
+      count: result.rows.length,
+      counters: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        current_customer_id: row.current_customer_id,
+        current_customer_name: row.current_customer_name
+      }))
+    });
+    
     const counters = result.rows.map((row: any) => ({
       id: row.id,
       name: row.name,
@@ -337,6 +378,59 @@ router.get('/counters/display', authenticateToken, logActivity('list_display_cou
     res.json(counters);
   } catch (error) {
     console.error('Error listing display counters:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Public counters endpoint for standalone display - no authentication required
+router.get('/public/counters/display', logActivity('list_public_display_counters'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = `
+      SELECT 
+        c.id,
+        c.name,
+        c.is_active,
+        c.display_order,
+        cu.id as current_customer_id,
+        cu.name as current_customer_name,
+        cu.token_number as current_customer_token,
+        cu.priority_flags as current_customer_priority_flags
+      FROM counters c
+      LEFT JOIN customers cu ON c.current_customer_id = cu.id AND cu.queue_status = 'serving'
+      WHERE c.is_active = true
+      ORDER BY c.display_order ASC, c.name ASC
+    `;
+    
+    const result = await pool.query(query);
+    
+    console.log('Public display counters query result:', {
+      count: result.rows.length,
+      counters: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        current_customer_id: row.current_customer_id,
+        current_customer_name: row.current_customer_name
+      }))
+    });
+    
+    const counters = result.rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      is_active: row.is_active,
+      current_customer: row.current_customer_id ? {
+        id: row.current_customer_id,
+        name: row.current_customer_name,
+        token_number: row.current_customer_token,
+        queue_status: 'serving',
+        priority_flags: typeof row.current_customer_priority_flags === 'string' 
+          ? JSON.parse(row.current_customer_priority_flags) 
+          : row.current_customer_priority_flags || { senior_citizen: false, pregnant: false, pwd: false }
+      } : null
+    }));
+    
+    res.json(counters);
+  } catch (error) {
+    console.error('Error listing public display counters:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
