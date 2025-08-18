@@ -28,8 +28,14 @@ const app: express.Application = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "DELETE"]
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "https://escashop-frontend.onrender.com",
+      "http://localhost:3000",
+      "http://localhost:3001"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
   }
 });
 
@@ -46,8 +52,39 @@ if (process.env.NODE_ENV === 'development') {
 
 // Middleware
 app.use(generalLimiter);
+// CORS configuration with flexible frontend URL support
+const allowedOrigins = [
+  config.FRONTEND_URL || 'http://localhost:3000',
+  'https://escashop-frontend.onrender.com',
+  'https://escashop-frontend-*.onrender.com', // Allow subdomains
+  'http://localhost:3000',
+  'http://localhost:3001'
+];
+
 app.use(cors({
-  origin: config.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check exact matches
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Check pattern matches (like *.onrender.com)
+    for (const allowedOrigin of allowedOrigins) {
+      if (allowedOrigin.includes('*')) {
+        const pattern = allowedOrigin.replace('*', '[a-zA-Z0-9-]+');
+        const regex = new RegExp(`^${pattern}$`);
+        if (regex.test(origin)) {
+          return callback(null, true);
+        }
+      }
+    }
+    
+    console.log(`CORS blocked request from origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'), false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

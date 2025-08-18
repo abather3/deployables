@@ -23,16 +23,36 @@ router.post('/login',
   ]),
   asyncErrorHandler(async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body;
+    
+    // Debug logging for login attempts
+    console.log(`🔐 [LOGIN DEBUG] Login attempt for email: ${email}`);
+    console.log(`🔐 [LOGIN DEBUG] Request origin: ${req.get('origin')}`);
+    console.log(`🔐 [LOGIN DEBUG] Request headers:`, {
+      origin: req.get('origin'),
+      'user-agent': req.get('user-agent'),
+      'content-type': req.get('content-type')
+    });
     // Validate user credentials
     const user = await UserService.validatePassword(email, password);
     
+    console.log(`🔐 [LOGIN DEBUG] User validation result:`, {
+      found: !!user,
+      userId: user?.id,
+      email: user?.email,
+      status: user?.status
+    });
+    
     if (!user) {
+      console.log(`❌ [LOGIN DEBUG] Invalid credentials for email: ${email}`);
       throwAuthError(AuthErrors.INVALID_CREDENTIALS);
     }
 
     if (user!.status !== 'active') {
+      console.log(`❌ [LOGIN DEBUG] User inactive:`, user!.status);
       throwAuthError(AuthErrors.USER_INACTIVE);
     }
+    
+    console.log(`✅ [LOGIN DEBUG] User authentication successful, generating tokens...`);
 
     // Generate JWT tokens
     const accessToken = (jwt as any).sign(
@@ -65,6 +85,13 @@ router.post('/login',
       user_agent: req.get('User-Agent')
     });
 
+    console.log(`🎉 [LOGIN DEBUG] Sending successful login response for user:`, {
+      userId: user!.id,
+      email: user!.email,
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken
+    });
+    
     res.json({
       user: {
         id: user!.id,
@@ -76,6 +103,8 @@ router.post('/login',
       accessToken,
       refreshToken
     });
+    
+    console.log(`✅ [LOGIN DEBUG] Login response sent successfully`);
   }));
 
 // Refresh token
