@@ -57,7 +57,7 @@ app.use('/api/transactions/checkout', sensitiveLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/customers', authenticateToken, customerRoutes);
-app.use('/api/queue', authenticateToken, queueRoutes);
+app.use('/api/queue', queueRoutes);
 app.use('/api/transactions', authenticateToken, transactionRoutes);
 app.use('/api/admin', authenticateToken, adminRoutes);
 app.use('/api/analytics', authenticateToken, analyticsRoutes);
