@@ -255,30 +255,39 @@ const StandaloneDisplayMonitor: React.FC = () => {
     item.priority_flags.senior_citizen || item.priority_flags.pregnant || item.priority_flags.pwd
   );
 
-  // Enhanced average wait time calculation with detailed logging
+  // Enhanced average wait time calculation with detailed logging and NaN protection
   const averageWaitTime = (() => {
     if (queueData.length === 0) {
       console.log('StandaloneDisplayMonitor: No queue data for average wait time calculation');
       return 0;
     }
     
-    const estimatedTimes = queueData.map(item => {
-      const time = item.estimated_time || 0;
+    // Filter out invalid time values before calculation
+    const validTimes = queueData.map(item => {
+      // Convert to number and handle all possible invalid cases
+      const time = typeof item.estimated_time === 'number' ? item.estimated_time : 
+                   typeof item.estimated_time === 'string' ? parseFloat(item.estimated_time) : 0;
       console.log('StandaloneDisplayMonitor: Queue item estimated time:', item.name, time);
-      return time;
-    });
+      return isNaN(time) ? 0 : time; // Replace NaN with 0
+    }).filter(time => time >= 0); // Only keep valid positive times
     
-    const total = estimatedTimes.reduce((sum, time) => sum + time, 0);
-    const average = Math.round(total / queueData.length);
+    if (validTimes.length === 0) {
+      console.log('StandaloneDisplayMonitor: No valid estimated times found');
+      return 0;
+    }
+    
+    const total = validTimes.reduce((sum, time) => sum + time, 0);
+    const average = Math.round(total / validTimes.length);
     
     console.log('StandaloneDisplayMonitor: Average wait time calculation:', {
       queueLength: queueData.length,
-      estimatedTimes,
+      validTimesLength: validTimes.length,
       total,
-      average
+      average,
+      isNaN: isNaN(average)
     });
     
-    return average;
+    return isNaN(average) ? 0 : average; // Final NaN check
   })();
 
   if (loading) {
