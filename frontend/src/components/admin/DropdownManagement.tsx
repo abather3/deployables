@@ -25,7 +25,7 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
-import { authenticatedApiRequest } from '../../utils/api';
+import { authenticatedApiRequest, parseApiResponse } from '../../utils/api';
 
 interface DropdownItem {
   id: number;
@@ -56,13 +56,8 @@ const DropdownManagement: React.FC = () => {
       const response = await authenticatedApiRequest(`/admin/${type}-types`, {
         method: 'GET'
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setItems(data);
-      } else {
-        throw new Error('Failed to fetch items');
-      }
+      const data = await parseApiResponse<DropdownItem[]>(response);
+      setItems(data);
     } catch (error) {
       console.error('Error fetching items:', error);
       setSnackbar({
@@ -117,19 +112,15 @@ const DropdownManagement: React.FC = () => {
         method,
         body: JSON.stringify(formData)
       });
-
-      if (response.ok) {
-        setSnackbar({
-          open: true,
-          message: editingItem ? `${type === 'grade' ? 'Grade' : 'Lens'} type updated successfully` : `${type === 'grade' ? 'Grade' : 'Lens'} type created successfully`,
-          severity: 'success'
-        });
-        handleCloseDialog();
-        fetchItems();
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to save item');
-      }
+      await parseApiResponse(response);
+      
+      setSnackbar({
+        open: true,
+        message: editingItem ? `${type === 'grade' ? 'Grade' : 'Lens'} type updated successfully` : `${type === 'grade' ? 'Grade' : 'Lens'} type created successfully`,
+        severity: 'success'
+      });
+      handleCloseDialog();
+      fetchItems();
     } catch (error) {
       console.error('Error saving item:', error);
       setSnackbar({
@@ -145,17 +136,14 @@ const DropdownManagement: React.FC = () => {
       const response = await authenticatedApiRequest(`/admin/${type}-types/${item.id}`, {
         method: 'DELETE'
       });
-
-      if (response.ok) {
-        setSnackbar({
-          open: true,
-          message: `${type === 'grade' ? 'Grade' : 'Lens'} type deleted successfully`,
-          severity: 'success'
-        });
-        fetchItems();
-      } else {
-        throw new Error('Failed to delete item');
-      }
+      await parseApiResponse(response);
+      
+      setSnackbar({
+        open: true,
+        message: `${type === 'grade' ? 'Grade' : 'Lens'} type deleted successfully`,
+        severity: 'success'
+      });
+      fetchItems();
     } catch (error) {
       console.error('Error deleting item:', error);
       setSnackbar({

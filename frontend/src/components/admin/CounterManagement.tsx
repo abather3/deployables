@@ -28,7 +28,7 @@ import {
   Delete as DeleteIcon,
   Store as CounterIcon
 } from '@mui/icons-material';
-import { authenticatedApiRequest } from '../../utils/api';
+import { authenticatedApiRequest, parseApiResponse } from '../../utils/api';
 
 interface Counter {
   id: number;
@@ -53,9 +53,10 @@ const CounterManagement: React.FC = () => {
 
   const fetchCounters = async () => {
     try {
-      const data = await authenticatedApiRequest('/admin/counters', {
+      const response = await authenticatedApiRequest('/admin/counters', {
         method: 'GET'
       });
+      const data = await parseApiResponse<Counter[]>(response);
       setCounters(data);
     } catch (error) {
       console.error('Error fetching counters:', error);
@@ -94,7 +95,7 @@ const CounterManagement: React.FC = () => {
         ? `/admin/counters/${editingCounter.id}`
         : '/admin/counters';
 
-      await authenticatedApiRequest(url, {
+      const response = await authenticatedApiRequest(url, {
         method,
         body: JSON.stringify({
           name: counterName.trim(),
@@ -102,6 +103,7 @@ const CounterManagement: React.FC = () => {
           isActive: true
         })
       });
+      await parseApiResponse(response);
 
       const message = editingCounter ? 'Counter updated successfully' : 'Counter created successfully';
       setSuccessMessage(message);
@@ -119,9 +121,10 @@ const CounterManagement: React.FC = () => {
     }
 
     try {
-      await authenticatedApiRequest(`/admin/counters/${counter.id}`, {
+      const response = await authenticatedApiRequest(`/admin/counters/${counter.id}`, {
         method: 'DELETE'
       });
+      await parseApiResponse(response);
 
       setSuccessMessage('Counter deleted successfully');
       fetchCounters();
@@ -133,9 +136,10 @@ const CounterManagement: React.FC = () => {
 
   const handleToggleActive = async (counter: Counter) => {
     try {
-      await authenticatedApiRequest(`/admin/counters/${counter.id}/toggle`, {
+      const response = await authenticatedApiRequest(`/admin/counters/${counter.id}/toggle`, {
         method: 'PUT'
       });
+      await parseApiResponse(response);
 
       setSuccessMessage(`Counter ${counter.is_active ? 'deactivated' : 'activated'} successfully`);
       fetchCounters();
