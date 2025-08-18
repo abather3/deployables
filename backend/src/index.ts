@@ -58,7 +58,10 @@ const allowedOrigins = [
   'https://escashop-frontend.onrender.com',
   'https://escashop-frontend-*.onrender.com', // Allow subdomains
   'http://localhost:3000',
-  'http://localhost:3001'
+  'http://localhost:3001',
+  // Additional production URLs to ensure CORS works
+  'https://escashop-frontend-production.onrender.com',
+  'https://escashop-frontend-main.onrender.com'
 ];
 
 console.log('🌐 [CORS DEBUG] Allowed origins:', allowedOrigins);
@@ -108,8 +111,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
+// Deployment: 2025-08-18 13:08 UTC - Fixed CORS and analytics initialization
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    deployment: '2025-08-18 13:08 UTC - CORS + Analytics Fix'
+  });
 });
 
 // Sensitive routes with stricter limits
