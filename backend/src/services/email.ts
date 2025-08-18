@@ -36,16 +36,28 @@ EscaShop Optical Team
 ==================================================
       `);
 
-      // If email configuration is available, send actual email
+      // Enhanced debugging information
+      console.log('\n🔧 EMAIL SERVICE DEBUG INFO:');
       console.log('EMAIL_SERVICE_ENABLED:', config.EMAIL_SERVICE_ENABLED);
       console.log('EMAIL_USER:', config.EMAIL_USER);
+      console.log('EMAIL_FROM:', config.EMAIL_FROM);
       console.log('EMAIL_PASSWORD:', config.EMAIL_PASSWORD ? '***CONFIGURED***' : 'NOT SET');
+      console.log('FRONTEND_URL:', config.FRONTEND_URL);
+      console.log('NODE_ENV:', config.NODE_ENV);
       
       if (config.EMAIL_SERVICE_ENABLED) {
-        console.log('Attempting to send actual email...');
-        return await this.sendActualEmail(email, resetToken, userName);
+        console.log('\n📧 Attempting to send actual email...');
+        const result = await this.sendActualEmail(email, resetToken, userName);
+        if (result) {
+          console.log('✅ Password reset email sent successfully to:', email);
+        } else {
+          console.log('❌ Failed to send password reset email to:', email);
+        }
+        return result;
       } else {
-        console.log('Email service is disabled, using console output only');
+        console.log('\n⚠️  Email service is disabled, using console output only');
+        console.log('   To enable email sending, set EMAIL_SERVICE_ENABLED=true');
+        console.log('   Also ensure EMAIL_PASSWORD is set with Gmail App Password');
       }
 
       // For development, always return true
