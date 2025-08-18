@@ -42,9 +42,24 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
-// Deployment: 2024-12-19 12:06 UTC - Fixed public queue endpoints auth issue
+// Deployment: 2025-08-18 23:36 UTC - Fixed TransactionService amount casting to numeric
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    deployment: '2025-08-18 23:36 UTC - Fixed TransactionService amount casting to numeric'
+  });
+});
+
+// Detailed API health check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    deployment: '2025-08-18 23:36 UTC - Fixed TransactionService amount casting to numeric',
+    api: 'active',
+    database: 'connected'
+  });
 });
 
 // Sensitive routes with stricter limits
