@@ -25,6 +25,7 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
+import { authenticatedApiRequest } from '../../utils/api';
 
 interface DropdownItem {
   id: number;
@@ -52,11 +53,8 @@ const DropdownManagement: React.FC = () => {
   const [type, setType] = useState<'grade' | 'lens'>('grade');
   const fetchItems = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/${type}-types`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await authenticatedApiRequest(`/admin/${type}-types`, {
+        method: 'GET'
       });
 
       if (response.ok) {
@@ -109,19 +107,14 @@ const DropdownManagement: React.FC = () => {
 
   const handleSubmit = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const url = editingItem 
-        ? `/api/admin/${type}-types/${editingItem.id}` 
-        : `/api/admin/${type}-types`;
+      const endpoint = editingItem 
+        ? `/admin/${type}-types/${editingItem.id}` 
+        : `/admin/${type}-types`;
       
       const method = editingItem ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
+      const response = await authenticatedApiRequest(endpoint, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(formData)
       });
 
@@ -149,13 +142,8 @@ const DropdownManagement: React.FC = () => {
 
   const handleDelete = async (item: DropdownItem) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      
-      const response = await fetch(`/api/admin/${type}-types/${item.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await authenticatedApiRequest(`/admin/${type}-types/${item.id}`, {
+        method: 'DELETE'
       });
 
       if (response.ok) {
