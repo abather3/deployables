@@ -81,8 +81,16 @@ const UserManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
+      // Use hardcoded production URL to bypass environment variable issues
+      const API_BASE_URL = process.env.NODE_ENV === 'production' 
+        ? 'https://escashop-backend.onrender.com/api'
+        : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
+      
+      console.log('🔧 UserManagement API URL:', API_BASE_URL);
+      console.log('🔧 Environment:', process.env.NODE_ENV);
+      console.log('🔧 Full URL:', `${API_BASE_URL}/users?excludeRole=admin`);
+      
       const token = localStorage.getItem('accessToken');
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
       const response = await fetch(`${API_BASE_URL}/users?excludeRole=admin`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -143,7 +151,9 @@ const UserManagement: React.FC = () => {
   const handleSubmit = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const API_BASE_URL = process.env.NODE_ENV === 'production' 
+        ? 'https://escashop-backend.onrender.com/api'
+        : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
       const url = editingUser 
         ? `${API_BASE_URL}/users/${editingUser.id}` 
         : `${API_BASE_URL}/users`;
@@ -186,7 +196,9 @@ const UserManagement: React.FC = () => {
       const token = localStorage.getItem('accessToken');
       const newStatus = user.status === 'active' ? 'inactive' : 'active';
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const API_BASE_URL = process.env.NODE_ENV === 'production' 
+        ? 'https://escashop-backend.onrender.com/api'
+        : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
       const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
         method: 'PUT',
         headers: {
@@ -224,7 +236,9 @@ const UserManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('accessToken');
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const API_BASE_URL = process.env.NODE_ENV === 'production' 
+        ? 'https://escashop-backend.onrender.com/api'
+        : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
       const response = await fetch(`${API_BASE_URL}/users/${user.id}/reset-password`, {
         method: 'POST',
         headers: {
@@ -270,7 +284,9 @@ const UserManagement: React.FC = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const API_BASE_URL = process.env.NODE_ENV === 'production' 
+        ? 'https://escashop-backend.onrender.com/api'
+        : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
       const response = await fetch(`${API_BASE_URL}/users/${user.id}/dependencies`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -303,7 +319,9 @@ const UserManagement: React.FC = () => {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const API_BASE_URL = process.env.NODE_ENV === 'production' 
+        ? 'https://escashop-backend.onrender.com/api'
+        : (process.env.REACT_APP_API_URL || 'http://localhost:5000/api');
       const response = await fetch(`${API_BASE_URL}/users/${deleteDialog.user.id}`, {
         method: 'DELETE',
         headers: {
