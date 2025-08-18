@@ -207,7 +207,7 @@ const DisplayMonitor: React.FC = () => {
         }));
         
         // Log WebSocket data transformation
-        const wsServingCount = transformedData.filter(item => item.queue_status === 'serving').length;
+        const wsServingCount = transformedData.filter((item: QueueItem) => item.queue_status === 'serving').length;
         console.log(`WebSocket update: ${wsServingCount} serving customers`);
         
         setQueueData(transformedData);
