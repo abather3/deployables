@@ -9,6 +9,7 @@
 
 - **[🏗️ Architecture Documentation](docs/architecture.md)** - Complete system architecture, diagrams, and code structure
 - **[🚀 Getting Started](#development-setup)** - Setup and installation guide
+- **[🔧 Transaction Amount Fix](TRANSACTION_FIX_README.md)** - Fix for zero transaction amounts in local development
 - **[🔄 Blue/Green Deployment Strategy](#blue-green-deployment-strategy)** - Zero-downtime deployment details
 - **[📊 Features Overview](#key-features)** - Core system capabilities
 - **[🔒 Security Guide](SECURITY_HARDENING_GUIDE.md)** - Security implementation details
