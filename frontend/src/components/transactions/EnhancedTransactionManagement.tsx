@@ -478,14 +478,75 @@ const EnhancedTransactionManagement: React.FC = () => {
     }
   }, [tabValue]);
 
-  // Load today's daily summary for dashboard display
+  // Find the most recent date with transactions and load that summary
   const loadDailySummary = async () => {
+    console.log('🔄 [DAILY_SUMMARY_DEBUG] Starting smart loadDailySummary...');
+    
     try {
+      // First, try today's date
       const today = new Date().toISOString().split('T')[0];
-      const summary = await TransactionApi.getDailySummary(today);
+      console.log('📅 [DAILY_SUMMARY_DEBUG] Checking today\'s date first:', today);
+      
+      let summary = await TransactionApi.getDailySummary(today);
+      console.log('📊 [DAILY_SUMMARY_DEBUG] Today\'s summary:', summary);
+      
+      // If today has no transactions, search for the most recent date with transactions
+      if (!summary || summary.totalTransactions === 0) {
+        console.log('🔍 [DAILY_SUMMARY_DEBUG] No transactions today, searching for most recent date with data...');
+        
+        // Search the past 7 days for transaction data
+        let foundDate = null;
+        for (let i = 1; i <= 7; i++) {
+          const testDate = new Date();
+          testDate.setDate(testDate.getDate() - i);
+          const dateString = testDate.toISOString().split('T')[0];
+          
+          try {
+            const testSummary = await TransactionApi.getDailySummary(dateString);
+            console.log(`📅 [DAILY_SUMMARY_DEBUG] Checking ${dateString}:`, testSummary?.totalTransactions || 0, 'transactions');
+            
+            if (testSummary && testSummary.totalTransactions > 0) {
+              console.log(`✅ [DAILY_SUMMARY_DEBUG] Found transactions on ${dateString}!`);
+              summary = testSummary;
+              foundDate = dateString;
+              break;
+            }
+          } catch (error) {
+            console.log(`⚠️ [DAILY_SUMMARY_DEBUG] Error checking ${dateString}:`, error.message);
+          }
+        }
+        
+        if (foundDate) {
+          console.log(`🎯 [DAILY_SUMMARY_DEBUG] Using date with transactions: ${foundDate}`);
+        } else {
+          console.log('❌ [DAILY_SUMMARY_DEBUG] No transactions found in the past 7 days');
+        }
+      } else {
+        console.log('✅ [DAILY_SUMMARY_DEBUG] Using today\'s date - has transactions');
+      }
+      
+      // Debug payment mode breakdown
+      if (summary?.paymentModeBreakdown) {
+        console.log('💰 [DAILY_SUMMARY_DEBUG] Payment mode breakdown analysis:');
+        Object.entries(summary.paymentModeBreakdown).forEach(([mode, data]) => {
+          console.log(`  ${mode}: amount=${data.amount}, count=${data.count}, type=${typeof data.amount}`);
+        });
+        
+        // Check if all amounts are zero
+        const allAmounts = Object.values(summary.paymentModeBreakdown).map(mode => mode.amount);
+        const allZero = allAmounts.every(amount => amount === 0);
+        console.log('⚠️ [DAILY_SUMMARY_DEBUG] All payment mode amounts are zero:', allZero);
+        console.log('📈 [DAILY_SUMMARY_DEBUG] Total amount from API:', summary.totalAmount);
+        
+        if (allZero && summary.totalAmount > 0) {
+          console.error('🚨 [DAILY_SUMMARY_DEBUG] MISMATCH DETECTED: Total amount is non-zero but all payment modes are zero!');
+        }
+      }
+      
       setDailySummary(summary);
+      console.log('✅ [DAILY_SUMMARY_DEBUG] Daily summary state updated with smart date selection');
     } catch (err) {
-      console.error('Error loading daily summary:', err);
+      console.error('❌ [DAILY_SUMMARY_DEBUG] Error loading daily summary:', err);
       // Fallback to null if API fails
       setDailySummary(null);
     }
