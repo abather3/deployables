@@ -16,6 +16,7 @@ import settingsRoutes from './routes/settings';
 import customerNotificationRoutes from './routes/customerNotifications';
 import schedulerRoutes from './routes/scheduler';
 import exportRoutes from './routes/exports';
+import fixTransactionRoutes from './routes/fix-transactions';
 import { authenticateToken } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -82,6 +83,7 @@ app.use('/api/settings', authenticateToken, settingsRoutes);
 app.use('/api/customer-notifications', authenticateToken, customerNotificationRoutes);
 app.use('/api/scheduler', authenticateToken, schedulerRoutes);
 app.use('/api/exports', authenticateToken, exportRoutes);
+app.use('/api/fix-transactions', authenticateToken, fixTransactionRoutes);
 
 // Global error handler middleware - must be added after all routes
 app.use(errorHandler);
