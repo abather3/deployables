@@ -287,9 +287,58 @@ class TransactionApi {
     paymentModeBreakdown: Record<string, { amount: number; count: number }>;
     salesAgentBreakdown: Array<{ agent_name: string; amount: number; count: number }>;
   }> {
+    console.log(`🔍 [API_DEBUG] TransactionApi.getDailySummary called with date: ${date || 'none (today)'}`); 
     const queryParams = date ? `?date=${date}` : '';
-    const response = await this.fetchWithAuth(`/transactions/reports/daily${queryParams}`, {}, apiOptions);
-    return response.json();
+    const finalUrl = `/transactions/reports/daily${queryParams}`;
+    console.log('🔗 [API_DEBUG] getDailySummary URL:', finalUrl);
+    console.log('🔗 [API_DEBUG] Full URL with base:', `${API_BASE_URL}${finalUrl}`);
+    
+    try {
+      const response = await this.fetchWithAuth(finalUrl, {}, apiOptions);
+      
+      // Log response details before parsing
+      console.log('📡 [API_DEBUG] getDailySummary response status:', response.status);
+      console.log('📡 [API_DEBUG] getDailySummary response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Clone the response to log the body
+      const responseClone = response.clone();
+      const rawText = await responseClone.text();
+      console.log('📡 [API_DEBUG] getDailySummary raw response (first 500 chars):', rawText.substring(0, 500));
+      
+      const summary = await response.json();
+      console.log('📊 [API_DEBUG] getDailySummary parsed response:', {
+        totalAmount: summary.totalAmount,
+        totalTransactions: summary.totalTransactions,
+        hasPaymentModeBreakdown: !!summary.paymentModeBreakdown,
+        hasSalesAgentBreakdown: !!summary.salesAgentBreakdown,
+        paymentModeCount: Object.keys(summary.paymentModeBreakdown || {}).length
+      });
+      
+      // Analyze payment mode breakdown
+      if (summary.paymentModeBreakdown) {
+        console.log('💳 [API_DEBUG] Payment mode breakdown analysis:');
+        Object.entries(summary.paymentModeBreakdown).forEach(([mode, data]) => {
+          console.log(`  ${mode}: amount=${data.amount}, count=${data.count}, type=${typeof data.amount}`);
+        });
+        
+        // Check if all amounts are zero
+        const allAmounts = Object.values(summary.paymentModeBreakdown).map(mode => mode.amount);
+        const allZero = allAmounts.every(amount => amount === 0);
+        console.log('⚠️ [API_DEBUG] All payment mode amounts are zero:', allZero);
+        
+        if (allZero && summary.totalAmount > 0) {
+          console.error('🚨 [API_DEBUG] CRITICAL ISSUE: Total amount is non-zero but all payment modes are zero!');
+          console.error('  This suggests a data consistency issue in the backend calculation.');
+        }
+      } else {
+        console.warn('⚠️ [API_DEBUG] No payment mode breakdown in response!');
+      }
+      
+      return summary;
+    } catch (error) {
+      console.error('❌ [API_DEBUG] Error in getDailySummary:', error);
+      throw error;
+    }
   }
 
   static async generateDailyReport(request: ReportGenerationRequest, apiOptions?: ApiOptions): Promise<DailyReport> {
