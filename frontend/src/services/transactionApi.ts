@@ -175,6 +175,8 @@ class TransactionApi {
 
   // Transaction CRUD operations
   static async getTransactions(filters: TransactionFilters = {}, apiOptions?: ApiOptions): Promise<TransactionListResponse> {
+    console.log('🔍 [API_DEBUG] TransactionApi.getTransactions called with filters:', filters);
+    
     const queryParams = new URLSearchParams();
     
     Object.entries(filters).forEach(([key, value]) => {
@@ -183,8 +185,56 @@ class TransactionApi {
       }
     });
 
-    const response = await this.fetchWithAuth(`/transactions?${queryParams.toString()}`, {}, apiOptions);
-    return response.json();
+    const finalUrl = `/transactions?${queryParams.toString()}`;
+    console.log('🔗 [API_DEBUG] Final API URL:', finalUrl);
+    console.log('🔗 [API_DEBUG] Full URL with base:', `${API_BASE_URL}${finalUrl}`);
+
+    const response = await this.fetchWithAuth(finalUrl, {}, apiOptions);
+    
+    // Log response details before parsing
+    console.log('📡 [API_DEBUG] Raw response status:', response.status);
+    console.log('📡 [API_DEBUG] Raw response headers:', Object.fromEntries(response.headers.entries()));
+    
+    // Clone the response to read it twice (once for logging, once for return)
+    const responseClone = response.clone();
+    const rawText = await responseClone.text();
+    console.log('📡 [API_DEBUG] Raw response body (first 500 chars):', rawText.substring(0, 500));
+    
+    const jsonData = await response.json();
+    console.log('📊 [API_DEBUG] Parsed JSON response structure:', {
+      hasTransactions: Array.isArray(jsonData.transactions),
+      transactionCount: jsonData.transactions?.length || 0,
+      hasPagination: !!jsonData.pagination,
+      paginationTotal: jsonData.pagination?.total || 'N/A'
+    });
+    
+    // Detailed analysis of first few transactions
+    if (jsonData.transactions && jsonData.transactions.length > 0) {
+      console.log('💰 [API_DEBUG] First transaction analysis:');
+      const firstTx = jsonData.transactions[0];
+      console.log('  Raw transaction object keys:', Object.keys(firstTx));
+      console.log('  ID:', firstTx.id, '(type:', typeof firstTx.id, ')');
+      console.log('  Amount:', firstTx.amount, '(type:', typeof firstTx.amount, ')');
+      console.log('  Payment Mode:', firstTx.payment_mode, '(type:', typeof firstTx.payment_mode, ')');
+      console.log('  Customer Name:', firstTx.customer_name, '(type:', typeof firstTx.customer_name, ')');
+      console.log('  Paid Amount:', firstTx.paid_amount, '(type:', typeof firstTx.paid_amount, ')');
+      console.log('  Balance Amount:', firstTx.balance_amount, '(type:', typeof firstTx.balance_amount, ')');
+      
+      // Check if amount is zero or invalid
+      if (firstTx.amount === 0 || firstTx.amount === null || firstTx.amount === undefined) {
+        console.warn('⚠️ [API_DEBUG] ISSUE FOUND: Transaction amount is zero, null, or undefined!');
+        console.warn('  This suggests the issue is in the backend data or query.');
+      }
+      
+      if (!firstTx.payment_mode || firstTx.payment_mode === '') {
+        console.warn('⚠️ [API_DEBUG] ISSUE FOUND: Payment mode is empty or undefined!');
+        console.warn('  This suggests payment mode data is not being returned from backend.');
+      }
+    } else {
+      console.log('📋 [API_DEBUG] No transactions returned from API');
+    }
+    
+    return jsonData;
   }
 
   static async getTransaction(id: number, apiOptions?: ApiOptions): Promise<Transaction> {

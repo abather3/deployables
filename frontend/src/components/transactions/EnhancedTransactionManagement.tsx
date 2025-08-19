@@ -104,16 +104,37 @@ const EnhancedTransactionManagement: React.FC = () => {
   const { user } = useAuth();
   const { socket } = useSocket();
   
-  // Consistent currency formatting function
-  const formatCurrency = (amount: number): string => {
-    if (isNaN(amount) || amount === null || amount === undefined) return '₱0.00';
-    if (amount === 0) return '₱0.00';
-    return new Intl.NumberFormat('en-PH', {
+  // Consistent currency formatting function with enhanced debugging
+  const formatCurrency = (amount: number, debugContext?: string): string => {
+    console.log(`💴 [CURRENCY_DEBUG] formatCurrency called with:`, { 
+      amount, 
+      type: typeof amount, 
+      isNaN: isNaN(amount), 
+      isNull: amount === null, 
+      isUndefined: amount === undefined,
+      context: debugContext || 'unknown'
+    });
+    
+    // Check for invalid values and log them
+    if (isNaN(amount) || amount === null || amount === undefined) {
+      console.warn(`⚠️ [CURRENCY_DEBUG] Invalid amount detected in ${debugContext}:`, amount);
+      return '₱0.00';
+    }
+    
+    if (amount === 0) {
+      console.log(`🔍 [CURRENCY_DEBUG] Zero amount in ${debugContext}`);
+      return '₱0.00';
+    }
+    
+    const formatted = new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount);
+    
+    console.log(`✅ [CURRENCY_DEBUG] Successfully formatted ${amount} to ${formatted} in ${debugContext}`);
+    return formatted;
   };
   
   // State management
@@ -124,6 +145,11 @@ const EnhancedTransactionManagement: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  
+  // API Connection monitoring
+  const [apiConnectionStatus, setApiConnectionStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastSuccessfulFetch, setLastSuccessfulFetch] = useState<Date | null>(null);
   
   // Filters
   const [dateFilter, setDateFilter] = useState({
@@ -246,9 +272,90 @@ const EnhancedTransactionManagement: React.FC = () => {
     }
   ];
 
-  // Load transactions from API
+  // API Connection Test
+  const testApiConnection = useCallback(async () => {
+    try {
+      // Simple health check API call - modify URL based on your backend
+      const response = await fetch('/api/health', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': user ? `Bearer ${user.token}` : ''
+        }
+      });
+      
+      if (response.ok) {
+        setApiConnectionStatus('connected');
+        setRetryCount(0);
+        return true;
+      } else {
+        setApiConnectionStatus('disconnected');
+        return false;
+      }
+    } catch (error) {
+      console.error('API connection test failed:', error);
+      setApiConnectionStatus('disconnected');
+      return false;
+    }
+  }, [user]);
+
+  // Retry mechanism for failed API calls
+  const retryApiCall = useCallback(async (apiCall: () => Promise<any>, maxRetries = 3) => {
+    let attempts = 0;
+    
+    while (attempts < maxRetries) {
+      try {
+        const result = await apiCall();
+        // Reset retry count on success
+        setRetryCount(0);
+        setApiConnectionStatus('connected');
+        setLastSuccessfulFetch(new Date());
+        return result;
+      } catch (error) {
+        attempts++;
+        setRetryCount(attempts);
+        
+        console.warn(`API call attempt ${attempts} failed:`, error);
+        
+        if (attempts === maxRetries) {
+          setApiConnectionStatus('disconnected');
+          throw error;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        const delay = Math.min(1000 * Math.pow(2, attempts - 1), 10000);
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }, []);
+
+  // Test connection periodically
+  useEffect(() => {
+    const connectionTestInterval = setInterval(() => {
+      testApiConnection();
+    }, 30000); // Test every 30 seconds
+
+    // Test immediately on mount
+    testApiConnection();
+
+    return () => clearInterval(connectionTestInterval);
+  }, [testApiConnection]);
+
+  // Load transactions from API with comprehensive debugging and retry logic
   const loadTransactions = useCallback(async () => {
+    console.log('🔄 [TRANSACTION_DEBUG] Starting transaction load...');
+    console.log('🔧 [TRANSACTION_DEBUG] Current filters:', {
+      startDate: dateFilter.startDate,
+      endDate: dateFilter.endDate,
+      paymentMode: paymentModeFilter,
+      page: page + 1,
+      limit: rowsPerPage
+    });
+    
     setLoading(true);
+    setError(null); // Clear previous errors
+    
     try {
       const filters = {
         startDate: dateFilter.startDate,
@@ -258,14 +365,92 @@ const EnhancedTransactionManagement: React.FC = () => {
         limit: rowsPerPage,
       };
 
+      console.log('📡 [TRANSACTION_DEBUG] Calling TransactionApi.getTransactions with filters:', filters);
+      
       const response = await TransactionApi.getTransactions(filters);
-      setTransactions(response.transactions);
-      setTotalCount(response.pagination.total);
+      
+      console.log('✅ [TRANSACTION_DEBUG] API Response received:', {
+        transactionCount: response?.transactions?.length || 0,
+        paginationTotal: response?.pagination?.total || 0,
+        responseStructure: Object.keys(response || {})
+      });
+      
+      // Debug individual transactions
+      if (response?.transactions && response.transactions.length > 0) {
+        console.log('💰 [TRANSACTION_DEBUG] First transaction detailed analysis:');
+        const firstTx = response.transactions[0];
+        console.log('  - ID:', firstTx.id, '(type:', typeof firstTx.id, ')');
+        console.log('  - OR Number:', firstTx.or_number, '(type:', typeof firstTx.or_number, ')');
+        console.log('  - Customer Name:', firstTx.customer_name, '(type:', typeof firstTx.customer_name, ')');
+        console.log('  - Amount:', firstTx.amount, '(type:', typeof firstTx.amount, ')');
+        console.log('  - Payment Mode:', firstTx.payment_mode, '(type:', typeof firstTx.payment_mode, ')');
+        console.log('  - Payment Status:', firstTx.payment_status, '(type:', typeof firstTx.payment_status, ')');
+        console.log('  - Full transaction object keys:', Object.keys(firstTx));
+        
+        // Test currency formatting on the actual data
+        console.log('💴 [TRANSACTION_DEBUG] Currency formatting test:');
+        console.log('  - Raw amount:', firstTx.amount);
+        console.log('  - Formatted currency:', formatCurrency(firstTx.amount));
+        console.log('  - Is amount valid?', !isNaN(firstTx.amount) && firstTx.amount !== null && firstTx.amount !== undefined);
+      }
+      
+      // Validate data before setting state
+      const validTransactions = response?.transactions?.filter(tx => {
+        const isValid = tx && tx.id && tx.or_number;
+        if (!isValid) {
+          console.warn('⚠️ [TRANSACTION_DEBUG] Invalid transaction found:', tx);
+        }
+        return isValid;
+      }) || [];
+      
+      console.log('📊 [TRANSACTION_DEBUG] Setting transactions state with', validTransactions.length, 'valid transactions');
+      
+      setTransactions(validTransactions);
+      setTotalCount(response?.pagination?.total || 0);
+      
     } catch (err) {
-      console.error('Error loading transactions:', err);
-      setError('Failed to load transactions. Please try again.');
+      console.error('❌ [TRANSACTION_DEBUG] Error loading transactions:', err);
+      
+      // Enhanced error logging
+      if (err.response) {
+        console.error('🔥 [TRANSACTION_DEBUG] API Response Error:', {
+          status: err.response.status,
+          statusText: err.response.statusText,
+          data: err.response.data,
+          headers: err.response.headers
+        });
+      } else if (err.request) {
+        console.error('🔥 [TRANSACTION_DEBUG] Network Error - No Response:', {
+          request: err.request,
+          message: err.message
+        });
+      } else {
+        console.error('🔥 [TRANSACTION_DEBUG] Request Setup Error:', err.message);
+      }
+      
+      // Set user-friendly error message based on error type
+      let errorMessage = 'Failed to load transactions. Please try again.';
+      if (err.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Access denied. You may not have permission to view transactions.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. The backend service may be temporarily unavailable.';
+      } else if (err.code === 'NETWORK_ERROR' || !err.response) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      }
+      
+      setError(errorMessage);
+      
+      // For debugging: set mock data if in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚧 [TRANSACTION_DEBUG] Setting mock data for development debugging');
+        setTransactions(mockTransactions);
+        setTotalCount(mockTransactions.length);
+      }
     } finally {
       setLoading(false);
+      console.log('🏁 [TRANSACTION_DEBUG] Transaction load completed');
     }
   }, [page, rowsPerPage, dateFilter, paymentModeFilter, searchQuery]);
 
@@ -1143,7 +1328,7 @@ const EnhancedTransactionManagement: React.FC = () => {
                 Total Amount
               </Typography>
               <Typography variant="h6" color="primary">
-                {formatCurrency(transaction.amount)}
+                {formatCurrency(transaction.amount, `mobile-card-${transaction.id}`)}
               </Typography>
             </Box>
             <Box sx={{ textAlign: 'right' }}>
@@ -1234,7 +1419,7 @@ const EnhancedTransactionManagement: React.FC = () => {
               <TableRow key={transaction.id}>
                 <TableCell>{transaction.or_number}</TableCell>
                 <TableCell>{transaction.customer_name}</TableCell>
-                <TableCell>{formatCurrency(transaction.amount)}</TableCell>
+                <TableCell>{formatCurrency(transaction.amount, `desktop-table-row-${transaction.id}`)}</TableCell>
                 <TableCell>
                   <Chip 
                     label={getPaymentModeLabel(transaction.payment_mode)}
@@ -1718,13 +1903,65 @@ const EnhancedTransactionManagement: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Transaction Management
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4">
+          Transaction Management
+        </Typography>
+        
+        {/* API Connection Status Indicator */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {apiConnectionStatus === 'connected' && (
+            <Chip 
+              icon={<CheckCircleIcon />}
+              label={`Connected${lastSuccessfulFetch ? ` (${lastSuccessfulFetch.toLocaleTimeString()})` : ''}`}
+              color="success"
+              variant="outlined"
+              size="small"
+            />
+          )}
+          {apiConnectionStatus === 'disconnected' && (
+            <Tooltip title={`Connection failed${retryCount > 0 ? ` (${retryCount} retries)` : ''}`}>
+              <Chip 
+                icon={<WarningIcon />}
+                label="Disconnected"
+                color="error"
+                variant="outlined"
+                size="small"
+              />
+            </Tooltip>
+          )}
+          {apiConnectionStatus === 'unknown' && (
+            <Chip 
+              icon={<CircularProgress size={16} />}
+              label="Connecting..."
+              color="default"
+              variant="outlined"
+              size="small"
+            />
+          )}
+        </Box>
+      </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity={apiConnectionStatus === 'disconnected' ? 'warning' : 'error'} 
+          sx={{ mb: 2 }}
+          action={
+            apiConnectionStatus === 'disconnected' ? (
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={() => window.location.reload()}
+              >
+                Retry
+              </Button>
+            ) : undefined
+          }
+        >
           {error}
+          {apiConnectionStatus === 'disconnected' && (
+            <><br />Working offline with cached data. Some features may be limited.</>  
+          )}
         </Alert>
       )}
 
