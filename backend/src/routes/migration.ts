@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { Pool } from 'pg';
 import { authenticateToken } from '../middleware/auth';
+import { AuthRequest } from '../types';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const pool = new Pool({
  * Execute the transaction amount migration via API
  * Only accessible by admin users
  */
-router.post('/fix-transaction-amounts', authenticateToken, async (req, res) => {
+router.post('/fix-transaction-amounts', authenticateToken, async (req: AuthRequest, res: Response) => {
   // Verify admin access
   if (req.user?.role !== 'admin') {
     return res.status(403).json({
@@ -201,7 +202,7 @@ router.post('/fix-transaction-amounts', authenticateToken, async (req, res) => {
  * GET /api/migration/status
  * Check current transaction status without making changes
  */
-router.get('/status', authenticateToken, async (req, res) => {
+router.get('/status', authenticateToken, async (req: AuthRequest, res: Response) => {
   if (req.user?.role !== 'admin') {
     return res.status(403).json({
       success: false,

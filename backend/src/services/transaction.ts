@@ -412,14 +412,12 @@ SELECT
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // 1. Global totals - COUNT SETTLED AMOUNTS ONLY (NOT FULL TRANSACTION AMOUNTS)
+    // 1. Global totals - COUNT ALL TRANSACTIONS AND SUM THEIR TOTAL AMOUNTS (for transparency)
     const totalsQ = `
       SELECT COUNT(*)::int AS total_transactions,
-             COALESCE(SUM(COALESCE(paid_amount, 0)),0)::numeric AS total_amount
+             COALESCE(SUM(amount),0)::numeric AS total_amount
       FROM transactions
       WHERE transaction_date BETWEEN $1 AND $2
-        AND payment_status IN ('paid', 'partial')
-        AND COALESCE(paid_amount, 0) > 0
     `;
 
     // 2. Per-mode breakdown - GET SETTLED AMOUNTS BY PAYMENT MODE FROM SETTLEMENTS TABLE
@@ -443,7 +441,7 @@ SELECT
       GROUP BY payment_status
     `;
 
-    // Sales agent breakdown
+    // Sales agent breakdown - use transaction amounts for consistency
     const agentQuery = `
       SELECT 
         u.full_name as agent_name,
