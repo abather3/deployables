@@ -2158,9 +2158,35 @@ const EnhancedTransactionManagement: React.FC = () => {
               {/* Daily Transaction Summaries */}
               <Card sx={{ mt: 3 }}>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    📊 Daily Transaction Summaries
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      📊 Daily Transaction Summaries
+                    </Typography>
+                    <Tooltip 
+                      title={
+                        <Box sx={{ p: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>How This Works:</Typography>
+                          <Typography variant="body2" sx={{ mb: 1 }}>• <strong>Total Revenue:</strong> Shows full transaction amounts (business revenue)</Typography>
+                          <Typography variant="body2" sx={{ mb: 1 }}>• <strong>Payment Status:</strong> Tracked separately in transaction details</Typography>
+                          <Typography variant="body2" sx={{ mb: 1 }}>• <strong>Partial Payments:</strong> Full transaction value still counts as daily revenue</Typography>
+                          <Typography variant="body2">• <strong>Settlement Tracking:</strong> Payment history available in transaction records</Typography>
+                        </Box>
+                      }
+                      placement="left"
+                      arrow
+                    >
+                      <IconButton size="small" sx={{ color: 'text.secondary' }}>
+                        <WarningIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    <Typography variant="body2">
+                      <strong>📈 Revenue Reporting:</strong> This summary shows total transaction amounts for business reporting. 
+                      Payment status (paid/partial/unpaid) is tracked separately in individual transaction records. 
+                      <strong>Partial payments</strong> still contribute their full transaction value to daily revenue totals.
+                    </Typography>
+                  </Alert>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
                     <Box sx={{ textAlign: 'center', p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
                       <Typography variant="h4" color="primary">💵</Typography>
