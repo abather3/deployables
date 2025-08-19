@@ -117,7 +117,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    deployment: '2025-08-18 13:08 UTC - CORS + Analytics Fix'
+    deployment: '2025-08-19 11:25 UTC - Daily Summary Payment Mode Fix'
   });
 });
 
