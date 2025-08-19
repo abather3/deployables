@@ -511,8 +511,8 @@ const EnhancedTransactionManagement: React.FC = () => {
               foundDate = dateString;
               break;
             }
-          } catch (error) {
-            console.log(`⚠️ [DAILY_SUMMARY_DEBUG] Error checking ${dateString}:`, error.message);
+          } catch (error: any) {
+            console.log(`⚠️ [DAILY_SUMMARY_DEBUG] Error checking ${dateString}:`, error?.message || error);
           }
         }
         
