@@ -394,16 +394,27 @@ const EnhancedTransactionManagement: React.FC = () => {
         console.log('  - Is amount valid?', !isNaN(firstTx.amount) && firstTx.amount !== null && firstTx.amount !== undefined);
       }
       
-      // Validate data before setting state
+      // Validate and convert data before setting state
       const validTransactions = response?.transactions?.filter(tx => {
         const isValid = tx && tx.id && tx.or_number;
         if (!isValid) {
           console.warn('⚠️ [TRANSACTION_DEBUG] Invalid transaction found:', tx);
         }
         return isValid;
-      }) || [];
+      }).map(tx => ({
+        ...tx,
+        // Ensure numeric fields are properly converted
+        amount: Number(tx.amount) || 0,
+        paid_amount: Number(tx.paid_amount) || 0,
+        balance_amount: Number(tx.balance_amount) || 0,
+        id: Number(tx.id) || tx.id,
+        customer_id: Number(tx.customer_id) || tx.customer_id,
+        sales_agent_id: Number(tx.sales_agent_id) || tx.sales_agent_id,
+        cashier_id: Number(tx.cashier_id) || tx.cashier_id
+      })) || [];
       
       console.log('📊 [TRANSACTION_DEBUG] Setting transactions state with', validTransactions.length, 'valid transactions');
+      console.log('💰 [TRANSACTION_DEBUG] Sample converted transaction:', validTransactions[0]);
       
       setTransactions(validTransactions);
       setTotalCount(response?.pagination?.total || 0);
