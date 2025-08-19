@@ -1430,7 +1430,17 @@ const EnhancedTransactionManagement: React.FC = () => {
               <TableRow key={transaction.id}>
                 <TableCell>{transaction.or_number}</TableCell>
                 <TableCell>{transaction.customer_name}</TableCell>
-                <TableCell>{formatCurrency(transaction.amount, `desktop-table-row-${transaction.id}`)}</TableCell>
+                <TableCell>
+                  {(() => {
+                    console.log(`🔍 [TABLE_RENDER] Transaction ID ${transaction.id}:`, {
+                      rawAmount: transaction.amount,
+                      amountType: typeof transaction.amount,
+                      isNaN: isNaN(transaction.amount),
+                      fullTransaction: transaction
+                    });
+                    return formatCurrency(transaction.amount, `desktop-table-row-${transaction.id}`);
+                  })()}
+                </TableCell>
                 <TableCell>
                   <Chip 
                     label={getPaymentModeLabel(transaction.payment_mode)}
