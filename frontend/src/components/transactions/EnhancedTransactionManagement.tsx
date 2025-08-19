@@ -101,7 +101,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
 const EnhancedTransactionManagement: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const { socket } = useSocket();
   
   // Consistent currency formatting function with enhanced debugging
@@ -280,7 +280,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': user ? `Bearer ${user.token}` : ''
+          'Authorization': accessToken ? `Bearer ${accessToken}` : ''
         }
       });
       
