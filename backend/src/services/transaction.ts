@@ -420,15 +420,14 @@ SELECT
       WHERE transaction_date BETWEEN $1 AND $2
     `;
 
-    // 2. Per-mode breakdown - GET SETTLED AMOUNTS BY PAYMENT MODE FROM SETTLEMENTS TABLE
+    // 2. Per-mode breakdown - GET TRANSACTION AMOUNTS BY PAYMENT MODE (consistent with totals)
     const modesQ = `
-      SELECT ps.payment_mode,
-             COUNT(ps.*)::int AS count,
-             COALESCE(SUM(ps.amount),0)::numeric AS amount
-      FROM payment_settlements ps
-      INNER JOIN transactions t ON ps.transaction_id = t.id
+      SELECT t.payment_mode,
+             COUNT(t.*)::int AS count,
+             COALESCE(SUM(t.amount),0)::numeric AS amount
+      FROM transactions t
       WHERE t.transaction_date BETWEEN $1 AND $2
-      GROUP BY ps.payment_mode
+      GROUP BY t.payment_mode
     `;
 
     // Payment status breakdown
