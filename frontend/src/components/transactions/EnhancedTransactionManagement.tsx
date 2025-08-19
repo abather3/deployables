@@ -408,35 +408,35 @@ const EnhancedTransactionManagement: React.FC = () => {
       setTransactions(validTransactions);
       setTotalCount(response?.pagination?.total || 0);
       
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ [TRANSACTION_DEBUG] Error loading transactions:', err);
       
       // Enhanced error logging
-      if (err.response) {
+      if (err?.response) {
         console.error('🔥 [TRANSACTION_DEBUG] API Response Error:', {
           status: err.response.status,
           statusText: err.response.statusText,
           data: err.response.data,
           headers: err.response.headers
         });
-      } else if (err.request) {
+      } else if (err?.request) {
         console.error('🔥 [TRANSACTION_DEBUG] Network Error - No Response:', {
           request: err.request,
           message: err.message
         });
       } else {
-        console.error('🔥 [TRANSACTION_DEBUG] Request Setup Error:', err.message);
+        console.error('🔥 [TRANSACTION_DEBUG] Request Setup Error:', err?.message || 'Unknown error');
       }
       
       // Set user-friendly error message based on error type
       let errorMessage = 'Failed to load transactions. Please try again.';
-      if (err.response?.status === 401) {
+      if (err?.response?.status === 401) {
         errorMessage = 'Authentication failed. Please log in again.';
-      } else if (err.response?.status === 403) {
+      } else if (err?.response?.status === 403) {
         errorMessage = 'Access denied. You may not have permission to view transactions.';
-      } else if (err.response?.status >= 500) {
+      } else if (err?.response?.status >= 500) {
         errorMessage = 'Server error. The backend service may be temporarily unavailable.';
-      } else if (err.code === 'NETWORK_ERROR' || !err.response) {
+      } else if (err?.code === 'NETWORK_ERROR' || !err?.response) {
         errorMessage = 'Network error. Please check your internet connection and try again.';
       }
       
