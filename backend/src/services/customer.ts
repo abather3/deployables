@@ -377,10 +377,25 @@ export class CustomerService {
     const paymentInfo = customerResult.rows[0].payment_info;
     console.log('🔍 [TRANSACTION_DEBUG] Retrieved payment_info from database:', JSON.stringify(paymentInfo, null, 2));
     
-    const amount = paymentInfo.amount || 0;
-    const paymentMode = paymentInfo.mode || PaymentMode.CASH;
+    // Force proper values to ensure they're not null/undefined
+    let amount = 0;
+    let paymentMode = PaymentMode.CASH;
+    
+    if (paymentInfo && typeof paymentInfo === 'object') {
+      amount = parseFloat(paymentInfo.amount) || 0;
+      
+      // Handle payment mode - ensure string values match enum
+      const mode = paymentInfo.mode;
+      if (mode === 'gcash') paymentMode = PaymentMode.GCASH;
+      else if (mode === 'maya') paymentMode = PaymentMode.MAYA;
+      else if (mode === 'bank_transfer') paymentMode = PaymentMode.BANK_TRANSFER;
+      else if (mode === 'credit_card') paymentMode = PaymentMode.CREDIT_CARD;
+      else if (mode === 'cash') paymentMode = PaymentMode.CASH;
+      else paymentMode = PaymentMode.CASH; // Default fallback
+    }
     
     console.log('🔍 [TRANSACTION_DEBUG] Processed values - amount:', amount, 'paymentMode:', paymentMode);
+    console.log('🔍 [TRANSACTION_DEBUG] Type checks - amount type:', typeof amount, 'paymentMode type:', typeof paymentMode);
     
     const query = `
       INSERT INTO transactions (
