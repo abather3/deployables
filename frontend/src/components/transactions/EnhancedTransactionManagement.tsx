@@ -403,9 +403,9 @@ const EnhancedTransactionManagement: React.FC = () => {
         return isValid;
       }).map(tx => {
         // Enhanced numeric conversion with fallbacks
-        const processedAmount = parseFloat(tx.amount) || 0;
-        const processedPaidAmount = parseFloat(tx.paid_amount) || 0;
-        const processedBalanceAmount = parseFloat(tx.balance_amount) || processedAmount; // fallback to amount if balance is missing
+        const processedAmount = parseFloat(String(tx.amount || 0)) || 0;
+        const processedPaidAmount = parseFloat(String(tx.paid_amount || 0)) || 0;
+        const processedBalanceAmount = parseFloat(String(tx.balance_amount || 0)) || processedAmount; // fallback to amount if balance is missing
         
         // Enhanced payment mode normalization
         let processedPaymentMode = tx.payment_mode;
