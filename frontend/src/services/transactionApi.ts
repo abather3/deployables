@@ -318,7 +318,8 @@ class TransactionApi {
       if (summary.paymentModeBreakdown) {
         console.log('💳 [API_DEBUG] Payment mode breakdown analysis:');
         Object.entries(summary.paymentModeBreakdown).forEach(([mode, data]) => {
-          console.log(`  ${mode}: amount=${data.amount}, count=${data.count}, type=${typeof data.amount}`);
+          const modeData = data as { amount: number; count: number };
+          console.log(`  ${mode}: amount=${modeData.amount}, count=${modeData.count}, type=${typeof modeData.amount}`);
         });
         
         // Check if all amounts are zero
