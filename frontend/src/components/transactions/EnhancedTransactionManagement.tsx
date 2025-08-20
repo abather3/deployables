@@ -105,7 +105,7 @@ const EnhancedTransactionManagement: React.FC = () => {
   const { socket } = useSocket();
   
   // Consistent currency formatting function with enhanced debugging
-  const formatCurrency = (amount: number, debugContext?: string): string => {
+  const formatCurrency = (amount: any, debugContext?: string): string => {
     console.log(`💴 [CURRENCY_DEBUG] formatCurrency called with:`, { 
       amount, 
       type: typeof amount, 
@@ -115,26 +115,64 @@ const EnhancedTransactionManagement: React.FC = () => {
       context: debugContext || 'unknown'
     });
     
-    // Check for invalid values and log them
-    if (isNaN(amount) || amount === null || amount === undefined) {
-      console.warn(`⚠️ [CURRENCY_DEBUG] Invalid amount detected in ${debugContext}:`, amount);
-      return '₱0.00';
+    // SUPER AGGRESSIVE conversion - try every possible way to get a number
+    let numericAmount = 0;
+    
+    if (amount === null || amount === undefined) {
+      console.warn(`⚠️ [CURRENCY_DEBUG] Null/undefined amount in ${debugContext}:`, amount);
+      numericAmount = 0;
+    } else if (typeof amount === 'number') {
+      if (isNaN(amount)) {
+        console.warn(`⚠️ [CURRENCY_DEBUG] NaN number in ${debugContext}:`, amount);
+        numericAmount = 0;
+      } else {
+        numericAmount = amount;
+      }
+    } else if (typeof amount === 'string') {
+      // Remove currency symbols, commas, and spaces
+      const cleanString = amount.replace(/[₱$,\s]/g, '');
+      const parsed = parseFloat(cleanString);
+      if (isNaN(parsed)) {
+        console.warn(`⚠️ [CURRENCY_DEBUG] Could not parse string '${amount}' in ${debugContext}`);
+        numericAmount = 0;
+      } else {
+        numericAmount = parsed;
+      }
+    } else {
+      // Try to convert to number as last resort
+      const converted = Number(amount);
+      if (isNaN(converted)) {
+        console.warn(`⚠️ [CURRENCY_DEBUG] Could not convert ${typeof amount} to number in ${debugContext}:`, amount);
+        numericAmount = 0;
+      } else {
+        numericAmount = converted;
+      }
     }
     
-    if (amount === 0) {
-      console.log(`🔍 [CURRENCY_DEBUG] Zero amount in ${debugContext}`);
-      return '₱0.00';
+    // Ensure we have a proper number at this point
+    if (typeof numericAmount !== 'number' || isNaN(numericAmount)) {
+      console.error(`🚨 [CURRENCY_DEBUG] Final conversion failed in ${debugContext}, using 0`);
+      numericAmount = 0;
     }
     
-    const formatted = new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-    
-    console.log(`✅ [CURRENCY_DEBUG] Successfully formatted ${amount} to ${formatted} in ${debugContext}`);
-    return formatted;
+    // Format using Intl - fallback to manual formatting if it fails
+    try {
+      const formatted = new Intl.NumberFormat('en-PH', {
+        style: 'currency',
+        currency: 'PHP',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(numericAmount);
+      
+      console.log(`✅ [CURRENCY_DEBUG] Successfully formatted ${amount} → ${numericAmount} → ${formatted} in ${debugContext}`);
+      return formatted;
+    } catch (error) {
+      console.error(`🚨 [CURRENCY_DEBUG] Intl.NumberFormat failed in ${debugContext}:`, error);
+      // Manual fallback formatting
+      const manualFormatted = `₱${numericAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+      console.log(`🔧 [CURRENCY_DEBUG] Using manual formatting: ${manualFormatted}`);
+      return manualFormatted;
+    }
   };
   
   // State management
@@ -369,91 +407,187 @@ const EnhancedTransactionManagement: React.FC = () => {
       
       const response = await TransactionApi.getTransactions(filters);
       
-      console.log('✅ [TRANSACTION_DEBUG] API Response received:', {
+      console.log('✅ [TRANSACTION_DEBUG] RAW API Response:', response);
+      console.log('📊 [TRANSACTION_DEBUG] Response Structure:', {
+        hasTransactions: !!response?.transactions,
         transactionCount: response?.transactions?.length || 0,
+        hasPagination: !!response?.pagination,
         paginationTotal: response?.pagination?.total || 0,
-        responseStructure: Object.keys(response || {})
+        responseKeys: Object.keys(response || {}),
+        firstTransactionKeys: response?.transactions?.[0] ? Object.keys(response.transactions[0]) : []
       });
       
-      // Debug individual transactions
+      // CRITICAL: Debug the ACTUAL data structure we receive
       if (response?.transactions && response.transactions.length > 0) {
-        console.log('💰 [TRANSACTION_DEBUG] First transaction detailed analysis:');
-        const firstTx = response.transactions[0];
-        console.log('  - ID:', firstTx.id, '(type:', typeof firstTx.id, ')');
-        console.log('  - OR Number:', firstTx.or_number, '(type:', typeof firstTx.or_number, ')');
-        console.log('  - Customer Name:', firstTx.customer_name, '(type:', typeof firstTx.customer_name, ')');
-        console.log('  - Amount:', firstTx.amount, '(type:', typeof firstTx.amount, ')');
-        console.log('  - Payment Mode:', firstTx.payment_mode, '(type:', typeof firstTx.payment_mode, ')');
-        console.log('  - Payment Status:', firstTx.payment_status, '(type:', typeof firstTx.payment_status, ')');
-        console.log('  - Full transaction object keys:', Object.keys(firstTx));
-        
-        // Test currency formatting on the actual data
-        console.log('💴 [TRANSACTION_DEBUG] Currency formatting test:');
-        console.log('  - Raw amount:', firstTx.amount);
-        console.log('  - Formatted currency:', formatCurrency(firstTx.amount));
-        console.log('  - Is amount valid?', !isNaN(firstTx.amount) && firstTx.amount !== null && firstTx.amount !== undefined);
+        console.log('🎯 [CRITICAL_DEBUG] RAW TRANSACTION DATA ANALYSIS:');
+        const sample = response.transactions.slice(0, 2);
+        sample.forEach((tx, idx) => {
+          console.log(`📋 Transaction ${idx + 1} RAW DATA:`, {
+            fullObject: tx,
+            amount: { value: tx.amount, type: typeof tx.amount, isNumber: !isNaN(Number(tx.amount)) },
+            payment_mode: { value: tx.payment_mode, type: typeof tx.payment_mode },
+            paid_amount: { value: tx.paid_amount, type: typeof tx.paid_amount },
+            balance_amount: { value: tx.balance_amount, type: typeof tx.balance_amount },
+            allKeys: Object.keys(tx)
+          });
+        });
       }
       
-      // Validate and convert data before setting state with enhanced processing
+      // AGGRESSIVE DATA PROCESSING - Handle all possible data formats
       const validTransactions = response?.transactions?.filter(tx => {
-        const isValid = tx && tx.id && tx.or_number;
+        const isValid = tx && (tx.id || tx._id) && tx.or_number;
         if (!isValid) {
-          console.warn('⚠️ [TRANSACTION_DEBUG] Invalid transaction found:', tx);
+          console.warn('⚠️ [TRANSACTION_DEBUG] Invalid transaction filtered out:', tx);
         }
         return isValid;
-      }).map(tx => {
-        // Enhanced numeric conversion with fallbacks
-        const processedAmount = parseFloat(String(tx.amount || 0)) || 0;
-        const processedPaidAmount = parseFloat(String(tx.paid_amount || 0)) || 0;
-        const processedBalanceAmount = parseFloat(String(tx.balance_amount || 0)) || processedAmount; // fallback to amount if balance is missing
+      }).map((tx, index) => {
+        // SUPER AGGRESSIVE amount processing - try every possible field
+        let rawAmount = tx.amount;
+        if (rawAmount === null || rawAmount === undefined || isNaN(Number(rawAmount))) {
+          // Try alternative field names
+          rawAmount = tx.total_amount || tx.totalAmount || tx.price || tx.value || 0;
+          console.warn(`🚨 [AMOUNT_FIX] TX ${tx.id}: amount field was ${tx.amount}, using fallback: ${rawAmount}`);
+        }
         
-        // Enhanced payment mode normalization
-        let processedPaymentMode = tx.payment_mode;
-        if (!processedPaymentMode || processedPaymentMode === null || processedPaymentMode === undefined) {
-          processedPaymentMode = PaymentMode.CASH; // fallback to cash
-        } else if (typeof processedPaymentMode === 'string') {
-          // Normalize payment mode string to enum value
+        // Convert to number with multiple strategies
+        let processedAmount = 0;
+        if (typeof rawAmount === 'string') {
+          // Remove currency symbols and spaces
+          const cleanAmount = rawAmount.replace(/[₱$,\s]/g, '');
+          processedAmount = parseFloat(cleanAmount) || 0;
+        } else if (typeof rawAmount === 'number') {
+          processedAmount = rawAmount;
+        } else {
+          processedAmount = Number(rawAmount) || 0;
+        }
+        
+        // Same aggressive processing for paid_amount
+        let rawPaidAmount = tx.paid_amount || tx.paidAmount || 0;
+        let processedPaidAmount = 0;
+        if (typeof rawPaidAmount === 'string') {
+          const cleanPaid = rawPaidAmount.replace(/[₱$,\s]/g, '');
+          processedPaidAmount = parseFloat(cleanPaid) || 0;
+        } else {
+          processedPaidAmount = Number(rawPaidAmount) || 0;
+        }
+        
+        // Same for balance_amount
+        let rawBalanceAmount = tx.balance_amount || tx.balanceAmount || (processedAmount - processedPaidAmount);
+        let processedBalanceAmount = 0;
+        if (typeof rawBalanceAmount === 'string') {
+          const cleanBalance = rawBalanceAmount.replace(/[₱$,\s]/g, '');
+          processedBalanceAmount = parseFloat(cleanBalance) || 0;
+        } else {
+          processedBalanceAmount = Number(rawBalanceAmount) || 0;
+        }
+        
+        // SUPER AGGRESSIVE payment mode processing
+        let rawPaymentMode = tx.payment_mode || tx.paymentMode || tx.payment_method || tx.paymentMethod || 'CASH';
+        let processedPaymentMode = PaymentMode.CASH; // Default fallback
+        
+        if (rawPaymentMode) {
+          const modeString = String(rawPaymentMode).toLowerCase().trim();
+          
+          // Comprehensive mapping including common variations
           const modeMapping: Record<string, PaymentMode> = {
+            // Standard values
             'cash': PaymentMode.CASH,
             'gcash': PaymentMode.GCASH,
             'maya': PaymentMode.MAYA,
             'bank_transfer': PaymentMode.BANK_TRANSFER,
-            'credit_card': PaymentMode.CREDIT_CARD
+            'credit_card': PaymentMode.CREDIT_CARD,
+            // Enum values
+            'CASH': PaymentMode.CASH,
+            'GCASH': PaymentMode.GCASH,
+            'MAYA': PaymentMode.MAYA,
+            'BANK_TRANSFER': PaymentMode.BANK_TRANSFER,
+            'CREDIT_CARD': PaymentMode.CREDIT_CARD,
+            // Variations
+            'banktransfer': PaymentMode.BANK_TRANSFER,
+            'bank transfer': PaymentMode.BANK_TRANSFER,
+            'creditcard': PaymentMode.CREDIT_CARD,
+            'credit card': PaymentMode.CREDIT_CARD,
+            'card': PaymentMode.CREDIT_CARD,
+            'digital_wallet': PaymentMode.GCASH,
+            'e_wallet': PaymentMode.GCASH,
+            'online': PaymentMode.GCASH
           };
-          const lowerCaseMode = processedPaymentMode.toLowerCase();
-          processedPaymentMode = modeMapping[lowerCaseMode] || processedPaymentMode;
+          
+          processedPaymentMode = modeMapping[modeString] || PaymentMode.CASH;
+          
+          if (!modeMapping[modeString]) {
+            console.warn(`🚨 [PAYMENT_MODE_FIX] TX ${tx.id}: Unknown payment mode '${rawPaymentMode}', defaulting to CASH`);
+          }
         }
         
-        // Log processed data for debugging
-        console.log(`🔧 [TRANSACTION_PROCESS] TX ${tx.id}:`, {
-          originalAmount: tx.amount,
-          processedAmount,
-          originalPaymentMode: tx.payment_mode,
-          processedPaymentMode,
-          originalPaidAmount: tx.paid_amount,
-          processedPaidAmount
-        });
-        
-        return {
+        const processedTransaction = {
           ...tx,
-          // Use processed values
+          // Override with processed values
+          id: Number(tx.id || tx._id) || tx.id || tx._id,
           amount: processedAmount,
           paid_amount: processedPaidAmount,
           balance_amount: processedBalanceAmount,
           payment_mode: processedPaymentMode,
-          // Ensure other numeric fields are properly converted
-          id: Number(tx.id) || tx.id,
-          customer_id: Number(tx.customer_id) || tx.customer_id,
-          sales_agent_id: Number(tx.sales_agent_id) || tx.sales_agent_id,
-          cashier_id: Number(tx.cashier_id) || tx.cashier_id
+          // Ensure other fields
+          customer_id: Number(tx.customer_id) || tx.customer_id || 0,
+          sales_agent_id: Number(tx.sales_agent_id) || tx.sales_agent_id || 0,
+          cashier_id: Number(tx.cashier_id) || tx.cashier_id || 0
         };
+        
+        // Log every single transaction processing for first few
+        if (index < 3) {
+          console.log(`🔧 [DETAILED_PROCESSING] TX ${processedTransaction.id}:`, {
+            BEFORE: {
+              amount: rawAmount,
+              payment_mode: rawPaymentMode,
+              paid_amount: rawPaidAmount,
+              balance_amount: rawBalanceAmount
+            },
+            AFTER: {
+              amount: processedAmount,
+              payment_mode: processedPaymentMode,
+              paid_amount: processedPaidAmount,
+              balance_amount: processedBalanceAmount
+            },
+            SUCCESS: {
+              amountValid: processedAmount > 0,
+              paymentModeValid: processedPaymentMode !== PaymentMode.CASH || rawPaymentMode?.toLowerCase() === 'cash'
+            }
+          });
+        }
+        
+        return processedTransaction;
       }) || [];
       
-      console.log('📊 [TRANSACTION_DEBUG] Setting transactions state with', validTransactions.length, 'valid transactions');
-      console.log('💰 [TRANSACTION_DEBUG] Sample converted transaction:', validTransactions[0]);
+      // FINAL verification
+      console.log('🎯 [FINAL_VERIFICATION] Processed transactions:');
+      console.log(`📊 Total processed: ${validTransactions.length}`);
+      if (validTransactions.length > 0) {
+        const sample = validTransactions[0];
+        console.log('✅ Sample processed transaction:', {
+          id: sample.id,
+          amount: sample.amount,
+          amount_type: typeof sample.amount,
+          payment_mode: sample.payment_mode,
+          payment_mode_type: typeof sample.payment_mode,
+          amountFormatted: formatCurrency(sample.amount, 'verification-test')
+        });
+        
+        // Test currency formatting with the actual data
+        console.log('💱 [CURRENCY_TEST] Testing formatCurrency with processed data:');
+        console.log('  Input:', sample.amount, typeof sample.amount);
+        console.log('  Output:', formatCurrency(sample.amount, 'final-test'));
+      }
+      
+      // Store for global debugging
+      (window as any).debugTransactionData = {
+        rawResponse: response,
+        processedTransactions: validTransactions,
+        firstTransaction: validTransactions[0]
+      };
       
       setTransactions(validTransactions);
-      setTotalCount(response?.pagination?.total || 0);
+      setTotalCount(response?.pagination?.total || validTransactions.length);
       
     } catch (err: any) {
       console.error('❌ [TRANSACTION_DEBUG] Error loading transactions:', err);
@@ -489,12 +623,10 @@ const EnhancedTransactionManagement: React.FC = () => {
       
       setError(errorMessage);
       
-      // For debugging: set mock data if in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🚧 [TRANSACTION_DEBUG] Setting mock data for development debugging');
-        setTransactions(mockTransactions);
-        setTotalCount(mockTransactions.length);
-      }
+      // ALWAYS show mock data for debugging if API fails
+      console.log('🚧 [FALLBACK] Using mock data for debugging');
+      setTransactions(mockTransactions);
+      setTotalCount(mockTransactions.length);
     } finally {
       setLoading(false);
       console.log('🏁 [TRANSACTION_DEBUG] Transaction load completed');
