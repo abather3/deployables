@@ -386,6 +386,9 @@ const CustomerManagement: React.FC = () => {
     // Clear any previous error messages
     setErrorMessage('');
     
+    console.log('🎯 [FRONTEND_DEBUG] Raw formData before submission:', JSON.stringify(formData, null, 2));
+    console.log('🎯 [FRONTEND_DEBUG] Payment info from form:', JSON.stringify(formData.payment_info, null, 2));
+    
     try {
       const submissionData = {
         or_number: formData.or_number,
@@ -414,6 +417,11 @@ const CustomerManagement: React.FC = () => {
         priority_flags: formData.priority_flags,
         sales_agent_id: user?.id
       };
+      
+      console.log('🎯 [FRONTEND_DEBUG] Processed submissionData being sent to API:', JSON.stringify(submissionData, null, 2));
+      console.log('🎯 [FRONTEND_DEBUG] Payment info being sent:', JSON.stringify(submissionData.payment_info, null, 2));
+      console.log('🎯 [FRONTEND_DEBUG] Normalized payment mode:', normalizePaymentMode(formData.payment_info.mode));
+      console.log('🎯 [FRONTEND_DEBUG] Amount conversion - raw:', formData.payment_info.amount, 'converted:', Number(formData.payment_info.amount));
       
       const isEditing = editingCustomer !== null;
       
