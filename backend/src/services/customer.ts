@@ -25,6 +25,8 @@ export class CustomerService {
     priority_flags: PriorityFlags;
     create_initial_transaction?: boolean;
   }): Promise<Customer> {
+    console.log('🔍 [CUSTOMER_CREATE_DEBUG] Full customerData received:', JSON.stringify(customerData, null, 2));
+    console.log('🔍 [PAYMENT_INFO_DEBUG] Payment info specifically:', JSON.stringify(customerData.payment_info, null, 2));
     const {
       or_number: provided_or_number,
       name,
@@ -92,10 +94,11 @@ export class CustomerService {
     // Always create initial unpaid transaction to ensure customer appears in transaction lists
     // This preserves the customer's selected payment mode in the transaction record
     try {
+      console.log('🔍 [TRANSACTION_CREATE_DEBUG] About to create initial transaction with payment_info:', JSON.stringify(payment_info, null, 2));
       await this.createInitialTransaction(customer.id, or_number, sales_agent_id);
-      console.log(`Created initial transaction for customer ${customer.name} with payment mode: ${payment_info.mode}`);
+      console.log(`✅ [TRANSACTION_CREATED] Initial transaction created for customer ${customer.name} with payment mode: ${payment_info.mode} and amount: ${payment_info.amount}`);
     } catch (transactionError) {
-      console.error('Failed to create initial transaction:', transactionError);
+      console.error('❌ [TRANSACTION_ERROR] Failed to create initial transaction:', transactionError);
       // Don't fail the customer creation if transaction fails
     }
     
@@ -361,6 +364,8 @@ export class CustomerService {
    * This ensures the customer appears in the sales page transaction list
    */
   private static async createInitialTransaction(customerId: number, orNumber: string, salesAgentId: number): Promise<void> {
+    console.log('🔍 [TRANSACTION_DEBUG] Starting createInitialTransaction for customer:', customerId);
+    
     // First, get the customer's payment information
     const customerQuery = `SELECT payment_info FROM customers WHERE id = $1`;
     const customerResult = await pool.query(customerQuery, [customerId]);
@@ -370,8 +375,12 @@ export class CustomerService {
     }
     
     const paymentInfo = customerResult.rows[0].payment_info;
+    console.log('🔍 [TRANSACTION_DEBUG] Retrieved payment_info from database:', JSON.stringify(paymentInfo, null, 2));
+    
     const amount = paymentInfo.amount || 0;
     const paymentMode = paymentInfo.mode || PaymentMode.CASH;
+    
+    console.log('🔍 [TRANSACTION_DEBUG] Processed values - amount:', amount, 'paymentMode:', paymentMode);
     
     const query = `
       INSERT INTO transactions (

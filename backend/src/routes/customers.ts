@@ -23,11 +23,16 @@ const router: express.Router = Router();
 // Create customer
 router.post('/', authenticateToken, requireSalesOrAdmin, validateSchema(createCustomerSchema), logActivity('create_customer'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('🌐 [API_DEBUG] Raw request body received from frontend:', JSON.stringify(req.body, null, 2));
+    
     const customerData = {
       ...req.body,
       sales_agent_id: req.user!.id,
       create_initial_transaction: req.body.create_initial_transaction !== undefined ? req.body.create_initial_transaction : true
     };
+    
+    console.log('🌐 [API_DEBUG] Processed customerData being sent to service:', JSON.stringify(customerData, null, 2));
+    console.log('🌐 [API_DEBUG] Payment info specifically from API:', JSON.stringify(customerData.payment_info, null, 2));
 
     const customer = await CustomerService.create(customerData);
     
