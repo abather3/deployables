@@ -323,7 +323,10 @@ class TransactionApi {
         });
         
         // Check if all amounts are zero
-        const allAmounts = Object.values(summary.paymentModeBreakdown).map(mode => mode.amount);
+        const allAmounts = Object.values(summary.paymentModeBreakdown).map(mode => {
+          const modeData = mode as { amount: number; count: number };
+          return modeData.amount;
+        });
         const allZero = allAmounts.every(amount => amount === 0);
         console.log('⚠️ [API_DEBUG] All payment mode amounts are zero:', allZero);
         
