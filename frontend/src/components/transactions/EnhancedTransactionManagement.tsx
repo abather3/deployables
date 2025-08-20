@@ -435,7 +435,7 @@ const EnhancedTransactionManagement: React.FC = () => {
       
       // AGGRESSIVE DATA PROCESSING - Handle all possible data formats
       const validTransactions = response?.transactions?.filter(tx => {
-        const isValid = tx && (tx.id || tx._id) && tx.or_number;
+        const isValid = tx && (tx.id || (tx as any)._id) && tx.or_number;
         if (!isValid) {
           console.warn('⚠️ [TRANSACTION_DEBUG] Invalid transaction filtered out:', tx);
         }
