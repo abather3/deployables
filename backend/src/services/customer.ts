@@ -89,14 +89,14 @@ export class CustomerService {
     const result = await pool.query(query, values);
     const customer = this.formatCustomer(result.rows[0]);
     
-    // Optionally create initial unpaid transaction
-    if (customerData.create_initial_transaction) {
-      try {
-        await this.createInitialTransaction(customer.id, or_number, sales_agent_id);
-      } catch (transactionError) {
-        console.error('Failed to create initial transaction:', transactionError);
-        // Don't fail the customer creation if transaction fails
-      }
+    // Always create initial unpaid transaction to ensure customer appears in transaction lists
+    // This preserves the customer's selected payment mode in the transaction record
+    try {
+      await this.createInitialTransaction(customer.id, or_number, sales_agent_id);
+      console.log(`Created initial transaction for customer ${customer.name} with payment mode: ${payment_info.mode}`);
+    } catch (transactionError) {
+      console.error('Failed to create initial transaction:', transactionError);
+      // Don't fail the customer creation if transaction fails
     }
     
     // Record analytics event for queue join
@@ -117,7 +117,7 @@ export class CustomerService {
       WebSocketService.emitCustomerCreated({
         customer,
         created_by: sales_agent_id,
-        has_initial_transaction: customerData.create_initial_transaction || false,
+        has_initial_transaction: true, // Always true since we always create initial transactions
         timestamp: new Date()
       });
     } catch (websocketError) {
