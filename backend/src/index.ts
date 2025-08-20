@@ -117,7 +117,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    deployment: '2025-08-19 11:25 UTC - Daily Summary Payment Mode Fix'
+    deployment: '2025-08-20 01:37 UTC - Always Create Initial Transactions Fix'
   });
 });
 
