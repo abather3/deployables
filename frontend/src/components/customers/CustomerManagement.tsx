@@ -408,7 +408,7 @@ const CustomerManagement: React.FC = () => {
         },
         payment_info: {
           mode: normalizePaymentMode(formData.payment_info.mode),
-          amount: Number(formData.payment_info.amount)
+          amount: Number(formData.payment_info.amount) || 0
         },
         remarks: formData.remarks,
         priority_flags: formData.priority_flags,
@@ -808,7 +808,8 @@ const CustomerManagement: React.FC = () => {
              formData.lens_type && formData.frame_code && hasValidEstimatedTime;
     }
     if (activeStep === 2) {
-      return formData.payment_info.mode && formData.payment_info.amount;
+      const hasValidAmount = formData.payment_info.amount && Number(formData.payment_info.amount) > 0;
+      return formData.payment_info.mode && hasValidAmount;
     }
     return true;
   }, [activeStep, formData]);
@@ -1364,6 +1365,9 @@ const CustomerManagement: React.FC = () => {
                       fullWidth
                       type="number"
                       required
+                      inputProps={{ min: 1, step: 0.01 }}
+                      helperText="Amount must be greater than 0"
+                      error={formData.payment_info.amount !== '' && Number(formData.payment_info.amount) <= 0}
                     />
                   </Grid>
                   <Grid size={12}>
