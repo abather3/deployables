@@ -2228,11 +2228,55 @@ const EnhancedTransactionManagement: React.FC = () => {
                   <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>Payment Mode Breakdown</Typography>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
                     {Object.values(PaymentMode).map(mode => {
-                      // Use data from dailySummary if available, otherwise fall back to local transactions
-                      const modeData = dailySummary?.paymentModeBreakdown[mode];
-                      const modeTransactions = transactions.filter(t => t.payment_mode === mode);
-                      const modeCount = modeData ? modeData.count : modeTransactions.length;
-                      const modeTotal = modeData ? modeData.amount : modeTransactions.reduce((sum, t) => sum + t.amount, 0);
+                      // Enhanced data access with debugging and fallback logic
+                      console.log(`🔍 [PAYMENT_MODE_DEBUG] Processing mode: ${mode}`);
+                      
+                      let modeData = null;
+                      let modeCount = 0;
+                      let modeTotal = 0;
+                      
+                      if (dailySummary?.paymentModeBreakdown) {
+                        console.log(`📊 [PAYMENT_MODE_DEBUG] Available breakdown keys:`, Object.keys(dailySummary.paymentModeBreakdown));
+                        
+                        // Try exact key match first
+                        modeData = dailySummary.paymentModeBreakdown[mode];
+                        
+                        // If no exact match, try all possible key variations
+                        if (!modeData) {
+                          const possibleKeys = [
+                            mode.toLowerCase(),
+                            mode.toUpperCase(), 
+                            mode,
+                            `PaymentMode.${mode.toUpperCase()}`,
+                            mode.replace('_', ' ').toLowerCase(),
+                            mode.replace('_', '').toLowerCase()
+                          ];
+                          
+                          for (const key of possibleKeys) {
+                            if (dailySummary.paymentModeBreakdown[key]) {
+                              modeData = dailySummary.paymentModeBreakdown[key];
+                              console.log(`✅ [PAYMENT_MODE_DEBUG] Found data with key: ${key}`);
+                              break;
+                            }
+                          }
+                        }
+                        
+                        if (modeData) {
+                          modeCount = Number(modeData.count) || 0;
+                          modeTotal = Number(modeData.amount) || 0;
+                          console.log(`💰 [PAYMENT_MODE_DEBUG] ${mode}: count=${modeCount}, amount=${modeTotal}`);
+                        } else {
+                          console.warn(`⚠️ [PAYMENT_MODE_DEBUG] No data found for ${mode} in breakdown`);
+                        }
+                      }
+                      
+                      // Fallback to local transaction data if no API data
+                      if (!modeData) {
+                        const modeTransactions = transactions.filter(t => t.payment_mode === mode);
+                        modeCount = modeTransactions.length;
+                        modeTotal = modeTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                        console.log(`🔄 [PAYMENT_MODE_DEBUG] Using fallback for ${mode}: count=${modeCount}, total=${modeTotal}`);
+                      }
                       
                       return (
                         <Box key={mode} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
@@ -2244,7 +2288,7 @@ const EnhancedTransactionManagement: React.FC = () => {
                             />
                             <Typography variant="body2">{modeCount} transactions</Typography>
                           </Box>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(modeTotal)}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(modeTotal, `payment-mode-${mode}`)}</Typography>
                         </Box>
                       );
                     })}

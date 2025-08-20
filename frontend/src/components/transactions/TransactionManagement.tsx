@@ -95,7 +95,19 @@ const TransactionManagement: React.FC = () => {
       
       if (response.ok) {
         const data: TransactionResponse = await response.json();
-        setTransactions(data.transactions);
+        
+        // FIX: Process transactions to handle backend data inconsistencies
+        const processedTransactions = data.transactions.map((tx: any) => ({
+          ...tx,
+          id: Number(tx.id),
+          amount: parseFloat(String(tx.amount || '0')),
+          payment_mode: tx.payment_mode ? String(tx.payment_mode).toLowerCase() : 'cash',
+          customer_name: tx.customer_name || 'N/A',
+          or_number: tx.or_number || 'N/A',
+          transaction_date: tx.transaction_date || tx.created_at,
+        }));
+        
+        setTransactions(processedTransactions);
         setTotalPages(data.pagination.total_pages);
         setTotalTransactions(data.pagination.total);
       } else {
@@ -192,7 +204,7 @@ const TransactionManagement: React.FC = () => {
                 Amount
               </Typography>
               <Typography variant="h6" color="primary">
-                ₱{transaction.amount.toLocaleString()}
+                ₱{transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Typography>
             </Box>
             <Box sx={{ textAlign: 'right' }}>
@@ -342,7 +354,7 @@ const TransactionManagement: React.FC = () => {
                       <TableCell>{transaction.customer_name}</TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                          ₱{transaction.amount.toLocaleString()}
+                          ₱{transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Typography>
                       </TableCell>
                       <TableCell>
