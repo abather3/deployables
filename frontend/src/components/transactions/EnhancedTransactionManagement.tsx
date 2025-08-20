@@ -442,7 +442,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         return isValid;
       }).map((tx, index) => {
         // SUPER AGGRESSIVE amount processing - try every possible field
-        let rawAmount = tx.amount;
+        let rawAmount: any = tx.amount;
         if (rawAmount === null || rawAmount === undefined || isNaN(Number(rawAmount))) {
           // Try alternative field names with proper type assertions
           rawAmount = (tx as any).total_amount || (tx as any).totalAmount || (tx as any).price || (tx as any).value || 0;
@@ -462,7 +462,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         }
         
         // Same aggressive processing for paid_amount
-        let rawPaidAmount = tx.paid_amount || (tx as any).paidAmount || 0;
+        let rawPaidAmount: any = tx.paid_amount || (tx as any).paidAmount || 0;
         let processedPaidAmount = 0;
         if (typeof rawPaidAmount === 'string') {
           const cleanPaid = rawPaidAmount.replace(/[₱$,\s]/g, '');
@@ -472,7 +472,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         }
         
         // Same for balance_amount
-        let rawBalanceAmount = tx.balance_amount || (tx as any).balanceAmount || (processedAmount - processedPaidAmount);
+        let rawBalanceAmount: any = tx.balance_amount || (tx as any).balanceAmount || (processedAmount - processedPaidAmount);
         let processedBalanceAmount = 0;
         if (typeof rawBalanceAmount === 'string') {
           const cleanBalance = rawBalanceAmount.replace(/[₱$,\s]/g, '');
@@ -482,7 +482,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         }
         
         // SUPER AGGRESSIVE payment mode processing
-        let rawPaymentMode = tx.payment_mode || (tx as any).paymentMode || (tx as any).payment_method || (tx as any).paymentMethod || 'CASH';
+        let rawPaymentMode: any = tx.payment_mode || (tx as any).paymentMode || (tx as any).payment_method || (tx as any).paymentMethod || 'CASH';
         let processedPaymentMode = PaymentMode.CASH; // Default fallback
         
         if (rawPaymentMode) {
