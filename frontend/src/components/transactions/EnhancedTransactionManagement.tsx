@@ -413,14 +413,15 @@ const EnhancedTransactionManagement: React.FC = () => {
           processedPaymentMode = PaymentMode.CASH; // fallback to cash
         } else if (typeof processedPaymentMode === 'string') {
           // Normalize payment mode string to enum value
-          const modeMapping = {
+          const modeMapping: Record<string, PaymentMode> = {
             'cash': PaymentMode.CASH,
             'gcash': PaymentMode.GCASH,
             'maya': PaymentMode.MAYA,
             'bank_transfer': PaymentMode.BANK_TRANSFER,
             'credit_card': PaymentMode.CREDIT_CARD
           };
-          processedPaymentMode = modeMapping[processedPaymentMode.toLowerCase()] || processedPaymentMode;
+          const lowerCaseMode = processedPaymentMode.toLowerCase();
+          processedPaymentMode = modeMapping[lowerCaseMode] || processedPaymentMode;
         }
         
         // Log processed data for debugging
