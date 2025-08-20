@@ -394,24 +394,59 @@ const EnhancedTransactionManagement: React.FC = () => {
         console.log('  - Is amount valid?', !isNaN(firstTx.amount) && firstTx.amount !== null && firstTx.amount !== undefined);
       }
       
-      // Validate and convert data before setting state
+      // Validate and convert data before setting state with enhanced processing
       const validTransactions = response?.transactions?.filter(tx => {
         const isValid = tx && tx.id && tx.or_number;
         if (!isValid) {
           console.warn('⚠️ [TRANSACTION_DEBUG] Invalid transaction found:', tx);
         }
         return isValid;
-      }).map(tx => ({
-        ...tx,
-        // Ensure numeric fields are properly converted
-        amount: Number(tx.amount) || 0,
-        paid_amount: Number(tx.paid_amount) || 0,
-        balance_amount: Number(tx.balance_amount) || 0,
-        id: Number(tx.id) || tx.id,
-        customer_id: Number(tx.customer_id) || tx.customer_id,
-        sales_agent_id: Number(tx.sales_agent_id) || tx.sales_agent_id,
-        cashier_id: Number(tx.cashier_id) || tx.cashier_id
-      })) || [];
+      }).map(tx => {
+        // Enhanced numeric conversion with fallbacks
+        const processedAmount = parseFloat(tx.amount) || 0;
+        const processedPaidAmount = parseFloat(tx.paid_amount) || 0;
+        const processedBalanceAmount = parseFloat(tx.balance_amount) || processedAmount; // fallback to amount if balance is missing
+        
+        // Enhanced payment mode normalization
+        let processedPaymentMode = tx.payment_mode;
+        if (!processedPaymentMode || processedPaymentMode === null || processedPaymentMode === undefined) {
+          processedPaymentMode = PaymentMode.CASH; // fallback to cash
+        } else if (typeof processedPaymentMode === 'string') {
+          // Normalize payment mode string to enum value
+          const modeMapping = {
+            'cash': PaymentMode.CASH,
+            'gcash': PaymentMode.GCASH,
+            'maya': PaymentMode.MAYA,
+            'bank_transfer': PaymentMode.BANK_TRANSFER,
+            'credit_card': PaymentMode.CREDIT_CARD
+          };
+          processedPaymentMode = modeMapping[processedPaymentMode.toLowerCase()] || processedPaymentMode;
+        }
+        
+        // Log processed data for debugging
+        console.log(`🔧 [TRANSACTION_PROCESS] TX ${tx.id}:`, {
+          originalAmount: tx.amount,
+          processedAmount,
+          originalPaymentMode: tx.payment_mode,
+          processedPaymentMode,
+          originalPaidAmount: tx.paid_amount,
+          processedPaidAmount
+        });
+        
+        return {
+          ...tx,
+          // Use processed values
+          amount: processedAmount,
+          paid_amount: processedPaidAmount,
+          balance_amount: processedBalanceAmount,
+          payment_mode: processedPaymentMode,
+          // Ensure other numeric fields are properly converted
+          id: Number(tx.id) || tx.id,
+          customer_id: Number(tx.customer_id) || tx.customer_id,
+          sales_agent_id: Number(tx.sales_agent_id) || tx.sales_agent_id,
+          cashier_id: Number(tx.cashier_id) || tx.cashier_id
+        };
+      }) || [];
       
       console.log('📊 [TRANSACTION_DEBUG] Setting transactions state with', validTransactions.length, 'valid transactions');
       console.log('💰 [TRANSACTION_DEBUG] Sample converted transaction:', validTransactions[0]);
