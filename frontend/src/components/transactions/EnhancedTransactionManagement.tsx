@@ -444,8 +444,8 @@ const EnhancedTransactionManagement: React.FC = () => {
         // SUPER AGGRESSIVE amount processing - try every possible field
         let rawAmount = tx.amount;
         if (rawAmount === null || rawAmount === undefined || isNaN(Number(rawAmount))) {
-          // Try alternative field names
-          rawAmount = tx.total_amount || tx.totalAmount || tx.price || tx.value || 0;
+          // Try alternative field names with proper type assertions
+          rawAmount = (tx as any).total_amount || (tx as any).totalAmount || (tx as any).price || (tx as any).value || 0;
           console.warn(`🚨 [AMOUNT_FIX] TX ${tx.id}: amount field was ${tx.amount}, using fallback: ${rawAmount}`);
         }
         
@@ -462,7 +462,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         }
         
         // Same aggressive processing for paid_amount
-        let rawPaidAmount = tx.paid_amount || tx.paidAmount || 0;
+        let rawPaidAmount = tx.paid_amount || (tx as any).paidAmount || 0;
         let processedPaidAmount = 0;
         if (typeof rawPaidAmount === 'string') {
           const cleanPaid = rawPaidAmount.replace(/[₱$,\s]/g, '');
@@ -472,7 +472,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         }
         
         // Same for balance_amount
-        let rawBalanceAmount = tx.balance_amount || tx.balanceAmount || (processedAmount - processedPaidAmount);
+        let rawBalanceAmount = tx.balance_amount || (tx as any).balanceAmount || (processedAmount - processedPaidAmount);
         let processedBalanceAmount = 0;
         if (typeof rawBalanceAmount === 'string') {
           const cleanBalance = rawBalanceAmount.replace(/[₱$,\s]/g, '');
@@ -482,7 +482,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         }
         
         // SUPER AGGRESSIVE payment mode processing
-        let rawPaymentMode = tx.payment_mode || tx.paymentMode || tx.payment_method || tx.paymentMethod || 'CASH';
+        let rawPaymentMode = tx.payment_mode || (tx as any).paymentMode || (tx as any).payment_method || (tx as any).paymentMethod || 'CASH';
         let processedPaymentMode = PaymentMode.CASH; // Default fallback
         
         if (rawPaymentMode) {
@@ -523,7 +523,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         const processedTransaction = {
           ...tx,
           // Override with processed values
-          id: Number(tx.id || tx._id) || tx.id || tx._id,
+          id: Number(tx.id || (tx as any)._id) || tx.id || (tx as any)._id,
           amount: processedAmount,
           paid_amount: processedPaidAmount,
           balance_amount: processedBalanceAmount,
