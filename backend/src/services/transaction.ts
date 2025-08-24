@@ -124,8 +124,8 @@ SELECT
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
                 WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                WHEN NULLIF(c.payment_info->>'amount', '') IS NOT NULL THEN 
-                  COALESCE(NULLIF(regexp_replace(c.payment_info->>'amount', '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+                WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
+                  COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
                 ELSE 0
               END
             ELSE t.amount
@@ -134,7 +134,7 @@ SELECT
         -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode (normalized)
         CASE 
           WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN 
-            LOWER(REPLACE(COALESCE(NULLIF(c.payment_info->>'mode',''), t.payment_mode), ' ', '_'))
+            LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
           ELSE t.payment_mode
         END as payment_mode,
         t.sales_agent_id,
@@ -171,8 +171,8 @@ SELECT
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
                 WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                WHEN NULLIF(c.payment_info->>'amount', '') IS NOT NULL THEN 
-                  COALESCE(NULLIF(regexp_replace(c.payment_info->>'amount', '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+                WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
+                  COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
                 ELSE 0
               END
             ELSE t.amount
@@ -181,7 +181,7 @@ SELECT
         -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode (normalized)
         CASE 
           WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN 
-            LOWER(REPLACE(COALESCE(NULLIF(c.payment_info->>'mode',''), t.payment_mode), ' ', '_'))
+            LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
           ELSE t.payment_mode
         END as payment_mode,
         t.sales_agent_id,
@@ -231,8 +231,8 @@ SELECT
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
                 WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                WHEN NULLIF(c.payment_info->>'amount','') IS NOT NULL THEN 
-                  COALESCE(NULLIF(regexp_replace(c.payment_info->>'amount', '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+                WHEN NULLIF((c.payment_info::jsonb->>'amount'),'') IS NOT NULL THEN 
+                  COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
                 ELSE 0
               END
             ELSE t.amount
@@ -241,7 +241,7 @@ SELECT
         )::FLOAT as amount,
         -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode normalized
         CASE 
-          WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN LOWER(REPLACE(COALESCE(NULLIF(c.payment_info->>'mode',''), t.payment_mode), ' ', '_'))
+          WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
           ELSE t.payment_mode
         END as payment_mode,
         t.sales_agent_id,
