@@ -4,6 +4,40 @@ import { QueueAnalyticsService } from './QueueAnalyticsService';
 import { WebSocketService } from './websocket';
 
 export class CustomerService {
+  // Helper to sanitize numeric amounts coming from various string formats (e.g., "₱1,500")
+  private static toNumber(value: any): number {
+    if (typeof value === 'number') return isNaN(value) ? 0 : value;
+    if (typeof value === 'string') {
+      const cleaned = value.replace(/[₱$,\s]/g, '');
+      const n = parseFloat(cleaned);
+      return isNaN(n) ? 0 : n;
+    }
+    const n = Number(value);
+    return isNaN(n) ? 0 : n;
+  }
+
+  // Normalize various payment mode spellings/variants to the PaymentMode enum
+  private static normalizePaymentMode(mode: any): PaymentMode {
+    const s = String(mode || '').toLowerCase().trim();
+    switch (s) {
+      case 'gcash':
+        return PaymentMode.GCASH;
+      case 'maya':
+        return PaymentMode.MAYA;
+      case 'bank_transfer':
+      case 'banktransfer':
+      case 'bank transfer':
+        return PaymentMode.BANK_TRANSFER;
+      case 'credit_card':
+      case 'creditcard':
+      case 'credit card':
+        return PaymentMode.CREDIT_CARD;
+      case 'cash':
+        return PaymentMode.CASH;
+      default:
+        return PaymentMode.CASH;
+    }
+  }
   static async create(customerData: {
     or_number?: string;
     name: string;
@@ -285,17 +319,41 @@ export class CustomerService {
   }
 
   static async update(id: number, updates: Partial<Customer>): Promise<Customer> {
+    // Merge payment_info to avoid losing fields on partial updates and normalize values
+    let mergedUpdates: any = { ...updates };
+    let shouldSyncPaymentInfo = false;
+
+    if (updates && typeof (updates as any).payment_info === 'object' && (updates as any).payment_info !== null) {
+      const existing = await this.findById(id);
+      const existingPI: any = existing?.payment_info || {};
+      const incomingPI: any = (updates as any).payment_info || {};
+
+      const mergedPI: any = {
+        ...existingPI,
+        ...incomingPI,
+      };
+
+      if ('amount' in mergedPI) {
+        mergedPI.amount = this.toNumber(mergedPI.amount);
+      }
+      if ('mode' in mergedPI) {
+        mergedPI.mode = this.normalizePaymentMode(mergedPI.mode);
+      }
+
+      mergedUpdates.payment_info = mergedPI;
+      shouldSyncPaymentInfo = true;
+    }
+
     const setClause: string[] = [];
     const values: any[] = [];
     let paramCount = 1;
 
-    Object.entries(updates).forEach(([key, value]) => {
+    Object.entries(mergedUpdates).forEach(([key, value]) => {
       if (value !== undefined && key !== 'id' && key !== 'created_at' && key !== 'updated_at') {
+        setClause.push(`${key} = $${paramCount}`);
         if (typeof value === 'object' && value !== null) {
-          setClause.push(`${key} = $${paramCount}`);
           values.push(JSON.stringify(value));
         } else {
-          setClause.push(`${key} = $${paramCount}`);
           values.push(value);
         }
         paramCount++;
@@ -315,12 +373,23 @@ export class CustomerService {
     `;
 
     const result = await pool.query(query, values);
-    
+
     if (result.rows.length === 0) {
       throw new Error('Customer not found');
     }
 
-    return this.formatCustomer(result.rows[0]);
+    const updatedCustomer = this.formatCustomer(result.rows[0]);
+
+    // Best-effort sync to transactions if payment_info changed
+    if (shouldSyncPaymentInfo) {
+      try {
+        await this.syncPaymentInfoToTransactions(id);
+      } catch (err) {
+        console.error('Failed to sync payment_info to transactions:', err);
+      }
+    }
+
+    return updatedCustomer;
   }
 
   static async updateStatus(id: number, status: QueueStatus): Promise<Customer> {
@@ -359,6 +428,43 @@ export class CustomerService {
     return score;
   }
 
+  // Synchronize the customer's updated payment_info to their most recent UNPAID/PARTIAL transaction
+  private static async syncPaymentInfoToTransactions(customerId: number): Promise<void> {
+    // Find the most recent non-PAID transaction
+    const txRes = await pool.query(
+      `SELECT id, paid_amount
+       FROM transactions
+       WHERE customer_id = $1 AND payment_status IN ($2, $3)
+       ORDER BY transaction_date DESC
+       LIMIT 1`,
+      [customerId, PaymentStatus.UNPAID, PaymentStatus.PARTIAL]
+    );
+
+    if (txRes.rows.length === 0) return; // Nothing to sync
+
+    const tx = txRes.rows[0];
+
+    const cRes = await pool.query('SELECT payment_info FROM customers WHERE id = $1', [customerId]);
+    if (cRes.rows.length === 0) return;
+
+    const pi = cRes.rows[0].payment_info || {};
+    const newAmount = this.toNumber(pi.amount);
+    const newMode = this.normalizePaymentMode(pi.mode);
+    const paid = Number(tx.paid_amount) || 0;
+    const newBalance = Math.max(newAmount - paid, 0);
+    const newStatus = newBalance === 0 ? PaymentStatus.PAID : (paid > 0 ? PaymentStatus.PARTIAL : PaymentStatus.UNPAID);
+
+    await pool.query(
+      `UPDATE transactions
+       SET amount = $1,
+           payment_mode = $2,
+           balance_amount = $3,
+           payment_status = $4
+       WHERE id = $5`,
+      [newAmount, newMode, newBalance, newStatus, tx.id]
+    );
+  }
+
   /**
    * Creates an initial unpaid transaction with the customer's payment amount
    * This ensures the customer appears in the sales page transaction list
@@ -374,25 +480,12 @@ export class CustomerService {
       throw new Error('Customer not found when creating initial transaction');
     }
     
-    const paymentInfo = customerResult.rows[0].payment_info;
+    const paymentInfo = customerResult.rows[0].payment_info || {};
     console.log('🔍 [TRANSACTION_DEBUG] Retrieved payment_info from database:', JSON.stringify(paymentInfo, null, 2));
     
-    // Force proper values to ensure they're not null/undefined
-    let amount = 0;
-    let paymentMode = PaymentMode.CASH;
-    
-    if (paymentInfo && typeof paymentInfo === 'object') {
-      amount = parseFloat(paymentInfo.amount) || 0;
-      
-      // Handle payment mode - ensure string values match enum
-      const mode = paymentInfo.mode;
-      if (mode === 'gcash') paymentMode = PaymentMode.GCASH;
-      else if (mode === 'maya') paymentMode = PaymentMode.MAYA;
-      else if (mode === 'bank_transfer') paymentMode = PaymentMode.BANK_TRANSFER;
-      else if (mode === 'credit_card') paymentMode = PaymentMode.CREDIT_CARD;
-      else if (mode === 'cash') paymentMode = PaymentMode.CASH;
-      else paymentMode = PaymentMode.CASH; // Default fallback
-    }
+    // Normalize values to ensure they're not null/undefined and in correct formats
+    const amount = CustomerService.toNumber(paymentInfo.amount);
+    const paymentMode = CustomerService.normalizePaymentMode(paymentInfo.mode);
     
     console.log('🔍 [TRANSACTION_DEBUG] Processed values - amount:', amount, 'paymentMode:', paymentMode);
     console.log('🔍 [TRANSACTION_DEBUG] Type checks - amount type:', typeof amount, 'paymentMode type:', typeof paymentMode);
