@@ -131,13 +131,14 @@ SELECT
             ELSE t.amount
           END AS NUMERIC
         )::FLOAT as amount,
-        -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode (normalized)
+        -- Derive payment_mode: prefer latest settlement; else use customer's payment_info if transaction mode is missing or default 'cash'; else normalize transaction mode
         COALESCE(
           (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
           CASE 
-            WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN 
-              LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
-            ELSE t.payment_mode
+            WHEN (t.payment_mode IS NULL OR t.payment_mode = '' OR t.payment_mode = 'cash') 
+                 AND NULLIF((c.payment_info::jsonb->>'mode'), '') IS NOT NULL THEN 
+              LOWER(REPLACE((c.payment_info::jsonb->>'mode'), ' ', '_'))
+            ELSE LOWER(REPLACE(COALESCE(t.payment_mode, ''), ' ', '_'))
           END
         ) as payment_mode,
         t.sales_agent_id,
@@ -181,13 +182,14 @@ SELECT
             ELSE t.amount
           END AS NUMERIC
         )::FLOAT as amount,
-        -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode (normalized)
+        -- Derive payment_mode: prefer latest settlement; else use customer's payment_info if transaction mode is missing or default 'cash'; else normalize transaction mode
         COALESCE(
           (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
           CASE 
-            WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN 
-              LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
-            ELSE t.payment_mode
+            WHEN (t.payment_mode IS NULL OR t.payment_mode = '' OR t.payment_mode = 'cash') 
+                 AND NULLIF((c.payment_info::jsonb->>'mode'), '') IS NOT NULL THEN 
+              LOWER(REPLACE((c.payment_info::jsonb->>'mode'), ' ', '_'))
+            ELSE LOWER(REPLACE(COALESCE(t.payment_mode, ''), ' ', '_'))
           END
         ) as payment_mode,
         t.sales_agent_id,
@@ -245,12 +247,14 @@ SELECT
           END 
           AS NUMERIC
         )::FLOAT as amount,
-        -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode normalized
+        -- Derive payment_mode: prefer latest settlement; else use customer's payment_info if transaction mode is missing or default 'cash'; else normalize transaction mode
         COALESCE(
           (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
           CASE 
-            WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
-            ELSE t.payment_mode
+            WHEN (t.payment_mode IS NULL OR t.payment_mode = '' OR t.payment_mode = 'cash') 
+                 AND NULLIF((c.payment_info::jsonb->>'mode'), '') IS NOT NULL THEN 
+              LOWER(REPLACE((c.payment_info::jsonb->>'mode'), ' ', '_'))
+            ELSE LOWER(REPLACE(COALESCE(t.payment_mode, ''), ' ', '_'))
           END
         ) as payment_mode,
         t.sales_agent_id,

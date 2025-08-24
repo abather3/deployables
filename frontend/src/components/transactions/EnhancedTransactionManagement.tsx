@@ -485,7 +485,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         }
         
         // SUPER AGGRESSIVE payment mode processing
-        let rawPaymentMode: any = tx.payment_mode || (tx as any).paymentMode || (tx as any).payment_method || (tx as any).paymentMethod || 'CASH';
+        let rawPaymentMode: any = tx.payment_mode ?? (tx as any).paymentMode ?? (tx as any).payment_method ?? (tx as any).paymentMethod ?? '';
         let processedPaymentMode = PaymentMode.CASH; // Default fallback
         
         if (rawPaymentMode) {
@@ -865,7 +865,8 @@ const EnhancedTransactionManagement: React.FC = () => {
     
     setSelectedTransaction(transaction);
     setSettlementAmount(transaction.balance_amount);
-    setSettlementPaymentMode(PaymentMode.CASH);
+    // Default the settlement payment mode to the transaction's current mode (or CASH as a safe fallback)
+    setSettlementPaymentMode((transaction.payment_mode as PaymentMode) || PaymentMode.CASH);
     setSettlementNotes('');
     setSuccessMessage('');
     setSettleDialog(true);
