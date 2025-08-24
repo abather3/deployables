@@ -76,17 +76,9 @@ const SalesAgentDashboard: React.FC = () => {
   // Fetch sales agent statistics
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/customers/stats/sales-agent', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch statistics');
-      }
-      
-      const data = await response.json();
+      const { authenticatedApiRequest, parseApiResponse } = await import('../../utils/api');
+      const response = await authenticatedApiRequest('/customers/stats/sales-agent', { method: 'GET' });
+      const data = await parseApiResponse<SalesAgentStats>(response);
       setStats(data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -97,17 +89,9 @@ const SalesAgentDashboard: React.FC = () => {
   // Fetch recent customers
   const fetchRecentCustomers = async () => {
     try {
-      const response = await fetch('/api/customers?limit=5&sortBy=created_at&sortOrder=desc', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch recent customers');
-      }
-      
-      const data = await response.json();
+      const { authenticatedApiRequest, parseApiResponse } = await import('../../utils/api');
+      const response = await authenticatedApiRequest('/customers?limit=5&sortBy=created_at&sortOrder=desc', { method: 'GET' });
+      const data = await parseApiResponse<{ customers: Customer[] }>(response);
       setRecentCustomers(data.customers || []);
     } catch (error) {
       console.error('Error fetching recent customers:', error);

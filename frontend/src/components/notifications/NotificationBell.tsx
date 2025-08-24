@@ -104,19 +104,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
     
     const loadNotifications = async () => {
       try {
-        const response = await fetch('/api/customer-notifications/active', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.notifications) {
-            setNotifications(data.notifications);
-            setUnreadCount(data.notifications.length);
-            console.log('[NOTIFICATION_BELL] Loaded existing notifications:', data.notifications.length);
-          }
+        const { authenticatedApiRequest, parseApiResponse } = await import('../../utils/api');
+        const response = await authenticatedApiRequest('/customer-notifications/active', { method: 'GET' });
+        const data = await parseApiResponse<{ success: boolean; notifications: CustomerRegistrationNotification[] }>(response);
+        if (data.success && data.notifications) {
+          setNotifications(data.notifications);
+          setUnreadCount(data.notifications.length);
+          console.log('[NOTIFICATION_BELL] Loaded existing notifications:', data.notifications.length);
         }
       } catch (error) {
         console.error('[NOTIFICATION_BELL] Error loading notifications:', error);
@@ -152,12 +146,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
 
     // Mark notification as read
     try {
-      await fetch(`/api/customer-notifications/${notificationId}/mark-read`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
+      const { authenticatedApiRequest } = await import('../../utils/api');
+      await authenticatedApiRequest(`/customer-notifications/${notificationId}/mark-read`, { method: 'POST' });
     } catch (error) {
       console.error('[NOTIFICATION_BELL] Error marking notification as read:', error);
     }
@@ -197,12 +187,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
 
     // Mark as read in backend
     try {
-      await fetch(`/api/customer-notifications/${notificationId}/mark-read`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
+      const { authenticatedApiRequest } = await import('../../utils/api');
+      await authenticatedApiRequest(`/customer-notifications/${notificationId}/mark-read`, { method: 'POST' });
     } catch (error) {
       console.error('[NOTIFICATION_BELL] Error marking notification as read:', error);
     }
@@ -220,12 +206,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
   const handleMarkAllAsRead = async () => {
     try {
       // Mark all notifications as read
+      const { authenticatedApiRequest } = await import('../../utils/api');
       const promises = notifications.map(notification =>
-        fetch(`/api/customer-notifications/${notification.notification_id}/mark-read`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
+        authenticatedApiRequest(`/customer-notifications/${notification.notification_id}/mark-read`, {
+          method: 'POST'
         })
       );
 

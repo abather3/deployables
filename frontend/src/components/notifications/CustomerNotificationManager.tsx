@@ -166,22 +166,14 @@ export const CustomerNotificationManager: React.FC<CustomerNotificationManagerPr
     
     const loadNotifications = async () => {
       try {
-        const response = await fetch('/api/customer-notifications/active', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.notifications) {
-            setNotifications(data.notifications.slice(0, 5)); // Limit to 5
-            console.log('[CUSTOMER_NOTIFICATION] Loaded existing notifications:', data.notifications.length);
-          }
-        } else {
-          console.error('[CUSTOMER_NOTIFICATION] Failed to load notifications:', response.status);
+        const { authenticatedApiRequest, parseApiResponse } = await import('../../utils/api');
+        const response = await authenticatedApiRequest('/customer-notifications/active', { method: 'GET' });
+        const data = await parseApiResponse<{ success: boolean; notifications: CustomerRegistrationNotification[] }>(response);
+        if (data.success && data.notifications) {
+          setNotifications(data.notifications.slice(0, 5)); // Limit to 5
+          console.log('[CUSTOMER_NOTIFICATION] Loaded existing notifications:', data.notifications.length);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('[CUSTOMER_NOTIFICATION] Error loading notifications:', error);
         setError('Failed to load notifications');
       }
@@ -200,12 +192,8 @@ export const CustomerNotificationManager: React.FC<CustomerNotificationManagerPr
 
     // Mark notification as read
     try {
-      const response = await fetch(`/api/customer-notifications/${notificationId}/mark-read`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
+      const { authenticatedApiRequest } = await import('../../utils/api');
+      const response = await authenticatedApiRequest(`/customer-notifications/${notificationId}/mark-read`, { method: 'POST' });
 
       if (response.ok) {
         // Remove from local state
@@ -243,12 +231,8 @@ export const CustomerNotificationManager: React.FC<CustomerNotificationManagerPr
 
     // Mark as read in backend
     try {
-      await fetch(`/api/customer-notifications/${notificationId}/mark-read`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
+      const { authenticatedApiRequest } = await import('../../utils/api');
+      await authenticatedApiRequest(`/customer-notifications/${notificationId}/mark-read`, { method: 'POST' });
     } catch (error) {
       console.error('[CUSTOMER_NOTIFICATION] Error marking notification as read:', error);
     }

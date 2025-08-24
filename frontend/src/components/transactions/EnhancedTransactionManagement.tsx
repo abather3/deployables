@@ -313,14 +313,9 @@ const EnhancedTransactionManagement: React.FC = () => {
   // API Connection Test
   const testApiConnection = useCallback(async () => {
     try {
-      // Simple health check API call - modify URL based on your backend
-      const response = await fetch('/api/health', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': accessToken ? `Bearer ${accessToken}` : ''
-        }
-      });
+      // Simple health check API call - use centralized API utilities
+      const { authenticatedApiRequest } = await import('../../utils/api');
+      const response = await authenticatedApiRequest('/health', { method: 'GET' });
       
       if (response.ok) {
         setApiConnectionStatus('connected');
