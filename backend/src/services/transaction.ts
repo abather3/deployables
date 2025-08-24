@@ -22,24 +22,61 @@ export class TransactionService {
       sales_agent_id,
       cashier_id
     } = transactionData;
-    
-    // If amount is zero or not provided, try to get it from customer payment_info
-    let finalAmount = amount;
-    if (!finalAmount || finalAmount <= 0) {
+
+    // Local helpers to normalize values
+    const toNumber = (v: any): number => {
+      if (typeof v === 'number') return isNaN(v) ? 0 : v;
+      if (typeof v === 'string') {
+        const cleaned = v.replace(/[₱$,\s]/g, '');
+        const n = parseFloat(cleaned);
+        return isNaN(n) ? 0 : n;
+      }
+      const n = Number(v);
+      return isNaN(n) ? 0 : n;
+    };
+    const normalizeMode = (m: any): PaymentMode => {
+      const s = String(m || '').toLowerCase().trim();
+      switch (s) {
+        case 'gcash': return PaymentMode.GCASH;
+        case 'maya': return PaymentMode.MAYA;
+        case 'bank_transfer':
+        case 'banktransfer':
+        case 'bank transfer': return PaymentMode.BANK_TRANSFER;
+        case 'credit_card':
+        case 'creditcard':
+        case 'credit card': return PaymentMode.CREDIT_CARD;
+        case 'cash': return PaymentMode.CASH;
+        default: return PaymentMode.CASH;
+      }
+    };
+
+    // Start with provided values
+    let finalAmount = toNumber(amount);
+    // Always normalize provided payment_mode first
+    let finalPaymentMode = normalizeMode(payment_mode);
+
+    // Determine if we need to fetch customer's payment_info only for amount fallback
+    const needFetch = (!finalAmount || finalAmount <= 0);
+
+    if (needFetch) {
       try {
         const customerQuery = `SELECT payment_info FROM customers WHERE id = $1`;
         const customerResult = await pool.query(customerQuery, [customer_id]);
-        
         if (customerResult.rows.length > 0 && customerResult.rows[0].payment_info) {
-          const paymentInfo = customerResult.rows[0].payment_info;
-          if (paymentInfo.amount && paymentInfo.amount > 0) {
-            finalAmount = paymentInfo.amount;
+          const paymentInfo = customerResult.rows[0].payment_info || {};
+          if ((!finalAmount || finalAmount <= 0) && paymentInfo.amount) {
+            finalAmount = toNumber(paymentInfo.amount);
             console.log(`Retrieved amount ${finalAmount} from customer payment_info for transaction creation`);
+          }
+          // If provided payment_mode was empty/undefined, optionally fallback to customer
+          if ((payment_mode === undefined || payment_mode === null || String(payment_mode).trim() === '') && paymentInfo.mode) {
+            finalPaymentMode = normalizeMode(paymentInfo.mode);
+            console.log(`Retrieved payment_mode ${finalPaymentMode} from customer payment_info for transaction creation`);
           }
         }
       } catch (error) {
-        console.error('Error retrieving customer payment_info amount:', error);
-        // Continue with the original amount if there's an error
+        console.error('Error retrieving customer payment_info for transaction creation:', error);
+        // Continue with the original values if there's an error
       }
     }
 
@@ -57,7 +94,7 @@ export class TransactionService {
       customer_id,
       or_number,
       finalAmount, // Use the potentially retrieved amount
-      payment_mode,
+      finalPaymentMode,
       sales_agent_id,
       cashier_id
     ];
@@ -87,7 +124,8 @@ SELECT
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
                 WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                WHEN NULLIF(c.payment_info->>'amount', '') IS NOT NULL THEN COALESCE((c.payment_info->>'amount')::numeric, 0)
+                WHEN NULLIF(c.payment_info->>'amount', '') IS NOT NULL THEN 
+                  COALESCE(NULLIF(regexp_replace(c.payment_info->>'amount', '[^0-9\.-]', '', 'g'), '')::numeric, 0)
                 ELSE 0
               END
             ELSE t.amount
@@ -133,7 +171,8 @@ SELECT
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
                 WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                WHEN NULLIF(c.payment_info->>'amount', '') IS NOT NULL THEN COALESCE((c.payment_info->>'amount')::numeric, 0)
+                WHEN NULLIF(c.payment_info->>'amount', '') IS NOT NULL THEN 
+                  COALESCE(NULLIF(regexp_replace(c.payment_info->>'amount', '[^0-9\.-]', '', 'g'), '')::numeric, 0)
                 ELSE 0
               END
             ELSE t.amount
@@ -192,7 +231,8 @@ SELECT
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
                 WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                WHEN NULLIF(c.payment_info->>'amount','') IS NOT NULL THEN COALESCE((c.payment_info->>'amount')::numeric, 0)
+                WHEN NULLIF(c.payment_info->>'amount','') IS NOT NULL THEN 
+                  COALESCE(NULLIF(regexp_replace(c.payment_info->>'amount', '[^0-9\.-]', '', 'g'), '')::numeric, 0)
                 ELSE 0
               END
             ELSE t.amount
