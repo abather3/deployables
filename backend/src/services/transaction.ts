@@ -118,14 +118,14 @@ SELECT
         t.id,
         t.customer_id,
         t.or_number,
-        -- Compute reliable amount; if invalid, fall back to paid+balance or customer's payment_info.amount
+        -- Compute reliable amount; prefer customer's payment_info when t.amount is invalid, use (paid+balance) only as last resort
         CAST(
           CASE 
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
-                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
                 WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
                   COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
                 ELSE 0
               END
             ELSE t.amount
@@ -168,14 +168,14 @@ SELECT
         t.id,
         t.customer_id,
         t.or_number,
-        -- Compute reliable amount; if invalid, fall back to paid+balance or customer's payment_info.amount
+        -- Compute reliable amount; prefer customer's payment_info when t.amount is invalid, use (paid+balance) only as last resort
         CAST(
           CASE 
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
-                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
                 WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
                   COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
                 ELSE 0
               END
             ELSE t.amount
@@ -231,14 +231,14 @@ SELECT
         t.id,
         t.customer_id,
         t.or_number,
-        -- Compute a reliable amount at the source. If t.amount is invalid, fall back to (paid+balance) or customer's payment_info.amount
+        -- Compute a reliable amount at the source. Prefer customer's payment_info when t.amount is invalid; use (paid+balance) only as last resort
         CAST(
           CASE 
             WHEN t.amount IS NULL OR t.amount <= 0 THEN 
               CASE 
-                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
                 WHEN NULLIF((c.payment_info::jsonb->>'amount'),'') IS NOT NULL THEN 
                   COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
                 ELSE 0
               END
             ELSE t.amount
@@ -362,17 +362,13 @@ SELECT
       WITH effective AS (
         SELECT 
           t.id,
-          -- Compute effective amount with same logic used in SELECTs
+          -- Compute effective amount using transaction.amount if set; otherwise prefer customer's payment_info.amount; do not use (paid+balance) here to avoid circular errors
           CAST(
             CASE 
-              WHEN t.amount IS NULL OR t.amount <= 0 THEN 
-                CASE 
-                  WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                  WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
-                    COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
-                  ELSE 0
-                END
-              ELSE t.amount
+              WHEN t.amount IS NOT NULL AND t.amount > 0 THEN t.amount
+              WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
+                COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+              ELSE 0
             END AS NUMERIC
           )::FLOAT AS effective_amount
         FROM transactions t
@@ -383,10 +379,10 @@ SELECT
       )
       UPDATE transactions
       SET paid_amount = paid.total_paid,
-          balance_amount = effective.effective_amount - paid.total_paid,
+          balance_amount = GREATEST(effective.effective_amount - paid.total_paid, 0),
           payment_status = CASE
             WHEN paid.total_paid = 0 THEN 'unpaid'
-            WHEN paid.total_paid >= effective.effective_amount THEN 'paid'
+            WHEN effective.effective_amount > 0 AND paid.total_paid >= effective.effective_amount THEN 'paid'
             ELSE 'partial'
           END
       FROM effective, paid
