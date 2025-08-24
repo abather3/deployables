@@ -315,7 +315,8 @@ const EnhancedTransactionManagement: React.FC = () => {
     try {
       // Simple health check API call - use centralized API utilities
       const { authenticatedApiRequest } = await import('../../utils/api');
-      const response = await authenticatedApiRequest('/health', { method: 'GET' });
+      // Prefer the API-scoped health endpoint exposed by backend
+      const response = await authenticatedApiRequest('/api/health', { method: 'GET' });
       
       if (response.ok) {
         setApiConnectionStatus('connected');
@@ -376,9 +377,11 @@ const EnhancedTransactionManagement: React.FC = () => {
   }, [testApiConnection]);
 
   // Load transactions from API with comprehensive debugging and retry logic
+  const DEBUG_UI = process.env.NODE_ENV !== 'production';
+
   const loadTransactions = useCallback(async () => {
-    console.log('🔄 [TRANSACTION_DEBUG] Starting transaction load...');
-    console.log('🔧 [TRANSACTION_DEBUG] Current filters:', {
+    if (DEBUG_UI) console.log('🔄 [TRANSACTION_DEBUG] Starting transaction load...');
+    if (DEBUG_UI) console.log('🔧 [TRANSACTION_DEBUG] Current filters:', {
       startDate: dateFilter.startDate,
       endDate: dateFilter.endDate,
       paymentMode: paymentModeFilter,
@@ -398,12 +401,12 @@ const EnhancedTransactionManagement: React.FC = () => {
         limit: rowsPerPage,
       };
 
-      console.log('📡 [TRANSACTION_DEBUG] Calling TransactionApi.getTransactions with filters:', filters);
+      if (DEBUG_UI) console.log('📡 [TRANSACTION_DEBUG] Calling TransactionApi.getTransactions with filters:', filters);
       
       const response = await TransactionApi.getTransactions(filters);
       
-      console.log('✅ [TRANSACTION_DEBUG] RAW API Response:', response);
-      console.log('📊 [TRANSACTION_DEBUG] Response Structure:', {
+      if (DEBUG_UI) console.log('✅ [TRANSACTION_DEBUG] RAW API Response:', response);
+      if (DEBUG_UI) console.log('📊 [TRANSACTION_DEBUG] Response Structure:', {
         hasTransactions: !!response?.transactions,
         transactionCount: response?.transactions?.length || 0,
         hasPagination: !!response?.pagination,
@@ -413,11 +416,11 @@ const EnhancedTransactionManagement: React.FC = () => {
       });
       
       // CRITICAL: Debug the ACTUAL data structure we receive
-      if (response?.transactions && response.transactions.length > 0) {
+      if (DEBUG_UI && response?.transactions && response.transactions.length > 0) {
         console.log('🎯 [CRITICAL_DEBUG] RAW TRANSACTION DATA ANALYSIS:');
         const sample = response.transactions.slice(0, 2);
         sample.forEach((tx, idx) => {
-          console.log(`📋 Transaction ${idx + 1} RAW DATA:`, {
+          if (DEBUG_UI) console.log(`📋 Transaction ${idx + 1} RAW DATA:`, {
             fullObject: tx,
             amount: { value: tx.amount, type: typeof tx.amount, isNumber: !isNaN(Number(tx.amount)) },
             payment_mode: { value: tx.payment_mode, type: typeof tx.payment_mode },
@@ -431,7 +434,7 @@ const EnhancedTransactionManagement: React.FC = () => {
       // AGGRESSIVE DATA PROCESSING - Handle all possible data formats
       const validTransactions = response?.transactions?.filter(tx => {
         const isValid = tx && (tx.id || (tx as any)._id) && tx.or_number;
-        if (!isValid) {
+        if (!isValid && DEBUG_UI) {
           console.warn('⚠️ [TRANSACTION_DEBUG] Invalid transaction filtered out:', tx);
         }
         return isValid;
@@ -441,7 +444,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         if (rawAmount === null || rawAmount === undefined || isNaN(Number(rawAmount))) {
           // Try alternative field names with proper type assertions
           rawAmount = (tx as any).total_amount || (tx as any).totalAmount || (tx as any).price || (tx as any).value || 0;
-          console.warn(`🚨 [AMOUNT_FIX] TX ${tx.id}: amount field was ${tx.amount}, using fallback: ${rawAmount}`);
+          if (DEBUG_UI) console.warn(`🚨 [AMOUNT_FIX] TX ${tx.id}: amount field was ${tx.amount}, using fallback: ${rawAmount}`);
         }
         
         // Convert to number with multiple strategies
@@ -511,7 +514,7 @@ const EnhancedTransactionManagement: React.FC = () => {
           processedPaymentMode = modeMapping[modeString] || PaymentMode.CASH;
           
           if (!modeMapping[modeString]) {
-            console.warn(`🚨 [PAYMENT_MODE_FIX] TX ${tx.id}: Unknown payment mode '${rawPaymentMode}', defaulting to CASH`);
+            if (DEBUG_UI) console.warn(`🚨 [PAYMENT_MODE_FIX] TX ${tx.id}: Unknown payment mode '${rawPaymentMode}', defaulting to CASH`);
           }
         }
         
@@ -530,7 +533,7 @@ const EnhancedTransactionManagement: React.FC = () => {
         };
         
         // Log every single transaction processing for first few
-        if (index < 3) {
+        if (DEBUG_UI && index < 3) {
           console.log(`🔧 [DETAILED_PROCESSING] TX ${processedTransaction.id}:`, {
             BEFORE: {
               amount: rawAmount,
@@ -555,11 +558,13 @@ const EnhancedTransactionManagement: React.FC = () => {
       }) || [];
       
       // FINAL verification
-      console.log('🎯 [FINAL_VERIFICATION] Processed transactions:');
-      console.log(`📊 Total processed: ${validTransactions.length}`);
+      if (DEBUG_UI) {
+        console.log('🎯 [FINAL_VERIFICATION] Processed transactions:');
+        console.log(`📊 Total processed: ${validTransactions.length}`);
+      }
       if (validTransactions.length > 0) {
         const sample = validTransactions[0];
-        console.log('✅ Sample processed transaction:', {
+        if (DEBUG_UI) console.log('✅ Sample processed transaction:', {
           id: sample.id,
           amount: sample.amount,
           amount_type: typeof sample.amount,
@@ -569,9 +574,11 @@ const EnhancedTransactionManagement: React.FC = () => {
         });
         
         // Test currency formatting with the actual data
-        console.log('💱 [CURRENCY_TEST] Testing formatCurrency with processed data:');
-        console.log('  Input:', sample.amount, typeof sample.amount);
-        console.log('  Output:', formatCurrency(sample.amount, 'final-test'));
+        if (DEBUG_UI) {
+          console.log('💱 [CURRENCY_TEST] Testing formatCurrency with processed data:');
+          console.log('  Input:', sample.amount, typeof sample.amount);
+          console.log('  Output:', formatCurrency(sample.amount, 'final-test'));
+        }
       }
       
       // Store for global debugging
@@ -585,23 +592,23 @@ const EnhancedTransactionManagement: React.FC = () => {
       setTotalCount(response?.pagination?.total || validTransactions.length);
       
     } catch (err: any) {
-      console.error('❌ [TRANSACTION_DEBUG] Error loading transactions:', err);
+      if (DEBUG_UI) console.error('❌ [TRANSACTION_DEBUG] Error loading transactions:', err);
       
       // Enhanced error logging
       if (err?.response) {
-        console.error('🔥 [TRANSACTION_DEBUG] API Response Error:', {
+        if (DEBUG_UI) console.error('🔥 [TRANSACTION_DEBUG] API Response Error:', {
           status: err.response.status,
           statusText: err.response.statusText,
           data: err.response.data,
           headers: err.response.headers
         });
       } else if (err?.request) {
-        console.error('🔥 [TRANSACTION_DEBUG] Network Error - No Response:', {
+        if (DEBUG_UI) console.error('🔥 [TRANSACTION_DEBUG] Network Error - No Response:', {
           request: err.request,
           message: err.message
         });
       } else {
-        console.error('🔥 [TRANSACTION_DEBUG] Request Setup Error:', err?.message || 'Unknown error');
+        if (DEBUG_UI) console.error('🔥 [TRANSACTION_DEBUG] Request Setup Error:', err?.message || 'Unknown error');
       }
       
       // Set user-friendly error message based on error type
@@ -619,12 +626,12 @@ const EnhancedTransactionManagement: React.FC = () => {
       setError(errorMessage);
       
       // ALWAYS show mock data for debugging if API fails
-      console.log('🚧 [FALLBACK] Using mock data for debugging');
+      if (DEBUG_UI) console.log('🚧 [FALLBACK] Using mock data for debugging');
       setTransactions(mockTransactions);
       setTotalCount(mockTransactions.length);
     } finally {
       setLoading(false);
-      console.log('🏁 [TRANSACTION_DEBUG] Transaction load completed');
+      if (DEBUG_UI) console.log('🏁 [TRANSACTION_DEBUG] Transaction load completed');
     }
   }, [page, rowsPerPage, dateFilter, paymentModeFilter, searchQuery]);
 

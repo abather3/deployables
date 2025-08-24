@@ -58,6 +58,7 @@ interface TransactionResponse {
 const TransactionManagement: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const DEBUG_TRANSACTIONS = process.env.NODE_ENV !== 'production';
   
   // State management
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -96,6 +97,26 @@ const TransactionManagement: React.FC = () => {
       if (response.ok) {
         const data: TransactionResponse = await response.json();
         
+        // Debug raw API data (non-production only)
+        if (DEBUG_TRANSACTIONS) {
+          console.log('[TM_DEBUG] Raw transaction API response:', data);
+          const tx0: any = data.transactions?.[0];
+          if (tx0) {
+            console.log('[TM_DEBUG] First transaction raw keys:', Object.keys(tx0));
+            console.log('[TM_DEBUG] First transaction fields:', {
+              id: tx0.id,
+              amount: tx0.amount,
+              payment_mode: tx0.payment_mode,
+              paid_amount: tx0.paid_amount,
+              balance_amount: tx0.balance_amount,
+              amountType: typeof tx0.amount,
+              paymentModeType: typeof tx0.payment_mode
+            });
+          } else {
+            console.log('[TM_DEBUG] No transactions returned');
+          }
+        }
+        
         // FIX: Process transactions to handle backend data inconsistencies
         const processedTransactions = data.transactions.map((tx: any) => ({
           ...tx,
@@ -106,6 +127,25 @@ const TransactionManagement: React.FC = () => {
           or_number: tx.or_number || 'N/A',
           transaction_date: tx.transaction_date || tx.created_at,
         }));
+        
+        // Debug processed data (non-production only)
+        if (DEBUG_TRANSACTIONS) {
+          const sample = processedTransactions[0];
+          const zeroAmounts = processedTransactions.filter(t => Number(t.amount) === 0).length;
+          const cashDefaults = processedTransactions.filter(t => (t.payment_mode || '').toString().toLowerCase() === 'cash').length;
+          const rawNonzeroCount = Array.isArray(data.transactions)
+            ? data.transactions.filter((tx: any) => {
+                const raw = tx.amount ?? tx.total_amount ?? tx.totalAmount ?? 0;
+                const num = Number(typeof raw === 'string' ? raw.replace(/[₱$,\s]/g, '') : raw);
+                return !isNaN(num) && num > 0;
+              }).length
+            : 0;
+          console.log('[TM_DEBUG] Sample processed transaction:', sample);
+          console.log(`[TM_DEBUG] Processed count=${processedTransactions.length}, zeroAmounts=${zeroAmounts}, cashModes=${cashDefaults}, rawNonzeroCount=${rawNonzeroCount}`);
+          if (zeroAmounts > 0 && rawNonzeroCount > 0) {
+            console.warn('[TM_DEBUG] Detected zero amounts in processed data while raw had non-zero values. Check mapping logic/field names.');
+          }
+        }
         
         setTransactions(processedTransactions);
         setTotalPages(data.pagination.total_pages);

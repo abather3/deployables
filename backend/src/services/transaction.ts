@@ -154,7 +154,14 @@ SELECT
         t.id,
         t.customer_id,
         t.or_number,
-        CAST(t.amount AS NUMERIC)::FLOAT as amount,
+        -- Compute a reliable amount at the source. If t.amount is null or <= 0, fall back to paid+balance; else cast t.amount
+        CAST(
+          CASE 
+            WHEN t.amount IS NULL OR t.amount <= 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
+            ELSE t.amount
+          END 
+          AS NUMERIC
+        )::FLOAT as amount,
         t.payment_mode,
         t.sales_agent_id,
         t.cashier_id,

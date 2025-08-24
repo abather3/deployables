@@ -85,6 +85,9 @@ interface SettlementResponse {
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+// Gate debug logging in production
+const DEBUG_API = process.env.NODE_ENV !== 'production';
+
 interface TransactionFilters {
   startDate?: string;
   endDate?: string;
@@ -175,7 +178,7 @@ class TransactionApi {
 
   // Transaction CRUD operations
   static async getTransactions(filters: TransactionFilters = {}, apiOptions?: ApiOptions): Promise<TransactionListResponse> {
-    console.log('🔍 [API_DEBUG] TransactionApi.getTransactions called with filters:', filters);
+    if (DEBUG_API) console.log('🔍 [API_DEBUG] TransactionApi.getTransactions called with filters:', filters);
     
     const queryParams = new URLSearchParams();
     
@@ -186,30 +189,36 @@ class TransactionApi {
     });
 
     const finalUrl = `/transactions?${queryParams.toString()}`;
-    console.log('🔗 [API_DEBUG] Final API URL:', finalUrl);
-    console.log('🔗 [API_DEBUG] Full URL with base:', `${API_BASE_URL}${finalUrl}`);
+    if (DEBUG_API) {
+      console.log('🔗 [API_DEBUG] Final API URL:', finalUrl);
+      console.log('🔗 [API_DEBUG] Full URL with base:', `${API_BASE_URL}${finalUrl}`);
+    }
 
     const response = await this.fetchWithAuth(finalUrl, {}, apiOptions);
     
     // Log response details before parsing
-    console.log('📡 [API_DEBUG] Raw response status:', response.status);
-    console.log('📡 [API_DEBUG] Raw response headers:', Object.fromEntries(response.headers.entries()));
-    
-    // Clone the response to read it twice (once for logging, once for return)
-    const responseClone = response.clone();
-    const rawText = await responseClone.text();
-    console.log('📡 [API_DEBUG] Raw response body (first 500 chars):', rawText.substring(0, 500));
+    if (DEBUG_API) {
+      console.log('📡 [API_DEBUG] Raw response status:', response.status);
+      console.log('📡 [API_DEBUG] Raw response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Clone the response to read it twice (once for logging, once for return)
+      const responseClone = response.clone();
+      const rawText = await responseClone.text();
+      console.log('📡 [API_DEBUG] Raw response body (first 500 chars):', rawText.substring(0, 500));
+    }
     
     const jsonData = await response.json();
-    console.log('📊 [API_DEBUG] Parsed JSON response structure:', {
-      hasTransactions: Array.isArray(jsonData.transactions),
-      transactionCount: jsonData.transactions?.length || 0,
-      hasPagination: !!jsonData.pagination,
-      paginationTotal: jsonData.pagination?.total || 'N/A'
-    });
+    if (DEBUG_API) {
+      console.log('📊 [API_DEBUG] Parsed JSON response structure:', {
+        hasTransactions: Array.isArray(jsonData.transactions),
+        transactionCount: jsonData.transactions?.length || 0,
+        hasPagination: !!jsonData.pagination,
+        paginationTotal: jsonData.pagination?.total || 'N/A'
+      });
+    }
     
     // Detailed analysis of first few transactions
-    if (jsonData.transactions && jsonData.transactions.length > 0) {
+    if (DEBUG_API && jsonData.transactions && jsonData.transactions.length > 0) {
       console.log('💰 [API_DEBUG] First transaction analysis:');
       const firstTx = jsonData.transactions[0];
       console.log('  Raw transaction object keys:', Object.keys(firstTx));
@@ -230,11 +239,51 @@ class TransactionApi {
         console.warn('⚠️ [API_DEBUG] ISSUE FOUND: Payment mode is empty or undefined!');
         console.warn('  This suggests payment mode data is not being returned from backend.');
       }
-    } else {
+    } else if (DEBUG_API) {
       console.log('📋 [API_DEBUG] No transactions returned from API');
     }
+
+    // Frontend normalization hotfix: ensure a meaningful amount is present
+    const toNumberSafe = (val: any): number => {
+      if (typeof val === 'number') return isFinite(val) ? val : 0;
+      if (typeof val === 'string') {
+        const cleaned = val.replace(/[₱$,\s]/g, '');
+        const parsed = parseFloat(cleaned);
+        return isFinite(parsed) ? parsed : 0;
+      }
+      const n = Number(val);
+      return isFinite(n) ? n : 0;
+    };
+
+    let normalizedCount = 0;
+    const normalized = {
+      ...jsonData,
+      transactions: Array.isArray(jsonData.transactions)
+        ? jsonData.transactions.map((tx: any) => {
+            const originalAmount = toNumberSafe(tx.amount);
+            let amount = originalAmount;
+            if (amount <= 0) {
+              const paid = toNumberSafe(tx.paid_amount);
+              const balance = toNumberSafe(tx.balance_amount);
+              const sum = paid + balance;
+              if (sum > 0) {
+                amount = sum;
+              } else {
+                const alt = toNumberSafe((tx as any).total_amount ?? (tx as any).totalAmount ?? (tx as any).price ?? (tx as any).value);
+                if (alt > 0) amount = alt;
+              }
+            }
+            if (amount > 0 && originalAmount <= 0) normalizedCount++;
+            return { ...tx, amount };
+          })
+        : []
+    } as TransactionListResponse;
+
+    if (DEBUG_API && normalizedCount > 0) {
+      console.warn(`⚠️ [API_DEBUG] Normalized amount for ${normalizedCount} transactions via fallback fields`);
+    }
     
-    return jsonData;
+    return normalized;
   }
 
   static async getTransaction(id: number, apiOptions?: ApiOptions): Promise<Transaction> {
