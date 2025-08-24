@@ -132,11 +132,14 @@ SELECT
           END AS NUMERIC
         )::FLOAT as amount,
         -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode (normalized)
-        CASE 
-          WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN 
-            LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
-          ELSE t.payment_mode
-        END as payment_mode,
+        COALESCE(
+          (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
+          CASE 
+            WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN 
+              LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
+            ELSE t.payment_mode
+          END
+        ) as payment_mode,
         t.sales_agent_id,
         t.cashier_id,
         t.transaction_date,
@@ -179,11 +182,14 @@ SELECT
           END AS NUMERIC
         )::FLOAT as amount,
         -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode (normalized)
-        CASE 
-          WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN 
-            LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
-          ELSE t.payment_mode
-        END as payment_mode,
+        COALESCE(
+          (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
+          CASE 
+            WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN 
+              LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
+            ELSE t.payment_mode
+          END
+        ) as payment_mode,
         t.sales_agent_id,
         t.cashier_id,
         t.transaction_date,
@@ -240,10 +246,13 @@ SELECT
           AS NUMERIC
         )::FLOAT as amount,
         -- Prefer transaction payment_mode; if empty, fall back to customer's payment_info.mode normalized
-        CASE 
-          WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
-          ELSE t.payment_mode
-        END as payment_mode,
+        COALESCE(
+          (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
+          CASE 
+            WHEN t.payment_mode IS NULL OR t.payment_mode = '' THEN LOWER(REPLACE(COALESCE(NULLIF((c.payment_info::jsonb->>'mode'),''), t.payment_mode), ' ', '_'))
+            ELSE t.payment_mode
+          END
+        ) as payment_mode,
         t.sales_agent_id,
         t.cashier_id,
         t.transaction_date,
@@ -350,31 +359,38 @@ SELECT
     // Log SQL transaction update
     console.log(`[TRANSACTION_TRACE] ${traceId}: Updating payment status in database`);
     const query = `
+      WITH effective AS (
+        SELECT 
+          t.id,
+          -- Compute effective amount with same logic used in SELECTs
+          CAST(
+            CASE 
+              WHEN t.amount IS NULL OR t.amount <= 0 THEN 
+                CASE 
+                  WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
+                  WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
+                    COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+                  ELSE 0
+                END
+              ELSE t.amount
+            END AS NUMERIC
+          )::FLOAT AS effective_amount
+        FROM transactions t
+        LEFT JOIN customers c ON t.customer_id = c.id
+        WHERE t.id = $1
+      ), paid AS (
+        SELECT COALESCE(SUM(amount), 0) AS total_paid FROM payment_settlements WHERE transaction_id = $1
+      )
       UPDATE transactions
-      SET paid_amount = COALESCE((
-        SELECT SUM(amount)
-        FROM payment_settlements
-        WHERE transaction_id = $1
-      ), 0),
-      balance_amount = amount - COALESCE((
-        SELECT SUM(amount)
-        FROM payment_settlements
-        WHERE transaction_id = $1
-      ), 0),
-      payment_status = CASE
-        WHEN COALESCE((
-          SELECT SUM(amount)
-          FROM payment_settlements
-          WHERE transaction_id = $1
-        ), 0) = 0 THEN 'unpaid'
-        WHEN COALESCE((
-          SELECT SUM(amount)
-          FROM payment_settlements
-          WHERE transaction_id = $1
-        ), 0) >= amount THEN 'paid'
-        ELSE 'partial'
-      END
-      WHERE id = $1
+      SET paid_amount = paid.total_paid,
+          balance_amount = effective.effective_amount - paid.total_paid,
+          payment_status = CASE
+            WHEN paid.total_paid = 0 THEN 'unpaid'
+            WHEN paid.total_paid >= effective.effective_amount THEN 'paid'
+            ELSE 'partial'
+          END
+      FROM effective, paid
+      WHERE transactions.id = effective.id
       RETURNING *
     `;
 
