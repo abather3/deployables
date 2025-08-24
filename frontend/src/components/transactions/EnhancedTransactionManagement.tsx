@@ -106,14 +106,17 @@ const EnhancedTransactionManagement: React.FC = () => {
   
   // Consistent currency formatting function with enhanced debugging
   const formatCurrency = (amount: any, debugContext?: string): string => {
-    console.log(`💴 [CURRENCY_DEBUG] formatCurrency called with:`, { 
-      amount, 
-      type: typeof amount, 
-      isNaN: isNaN(amount), 
-      isNull: amount === null, 
-      isUndefined: amount === undefined,
-      context: debugContext || 'unknown'
-    });
+    const IS_PROD = process.env.NODE_ENV === 'production';
+    if (!IS_PROD) {
+      console.log(`💴 [CURRENCY_DEBUG] formatCurrency called with:`, { 
+        amount, 
+        type: typeof amount, 
+        isNaN: isNaN(amount), 
+        isNull: amount === null, 
+        isUndefined: amount === undefined,
+        context: debugContext || 'unknown'
+      });
+    }
     
     // SUPER AGGRESSIVE conversion - try every possible way to get a number
     let numericAmount = 0;
@@ -164,13 +167,13 @@ const EnhancedTransactionManagement: React.FC = () => {
         maximumFractionDigits: 2
       }).format(numericAmount);
       
-      console.log(`✅ [CURRENCY_DEBUG] Successfully formatted ${amount} → ${numericAmount} → ${formatted} in ${debugContext}`);
+      if (!IS_PROD) console.log(`✅ [CURRENCY_DEBUG] Successfully formatted ${amount} → ${numericAmount} → ${formatted} in ${debugContext}`);
       return formatted;
     } catch (error) {
-      console.error(`🚨 [CURRENCY_DEBUG] Intl.NumberFormat failed in ${debugContext}:`, error);
+      if (!IS_PROD) console.error(`🚨 [CURRENCY_DEBUG] Intl.NumberFormat failed in ${debugContext}:`, error);
       // Manual fallback formatting
       const manualFormatted = `₱${numericAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-      console.log(`🔧 [CURRENCY_DEBUG] Using manual formatting: ${manualFormatted}`);
+      if (!IS_PROD) console.log(`🔧 [CURRENCY_DEBUG] Using manual formatting: ${manualFormatted}`);
       return manualFormatted;
     }
   };
@@ -315,8 +318,8 @@ const EnhancedTransactionManagement: React.FC = () => {
     try {
       // Simple health check API call - use centralized API utilities
       const { authenticatedApiRequest } = await import('../../utils/api');
-      // Prefer the API-scoped health endpoint exposed by backend
-      const response = await authenticatedApiRequest('/api/health', { method: 'GET' });
+      // IMPORTANT: pass '/health' (base already includes /api)
+      const response = await authenticatedApiRequest('/health', { method: 'GET' });
       
       if (response.ok) {
         setApiConnectionStatus('connected');
@@ -378,6 +381,8 @@ const EnhancedTransactionManagement: React.FC = () => {
 
   // Load transactions from API with comprehensive debugging and retry logic
   const DEBUG_UI = process.env.NODE_ENV !== 'production';
+  // Only allow mock fallback explicitly in development via localStorage flag
+  const USE_DEV_MOCK_FALLBACK = process.env.NODE_ENV !== 'production' && (localStorage.getItem('USE_MOCK_TRANSACTIONS') === '1');
 
   const loadTransactions = useCallback(async () => {
     if (DEBUG_UI) console.log('🔄 [TRANSACTION_DEBUG] Starting transaction load...');
@@ -625,10 +630,15 @@ const EnhancedTransactionManagement: React.FC = () => {
       
       setError(errorMessage);
       
-      // ALWAYS show mock data for debugging if API fails
-      if (DEBUG_UI) console.log('🚧 [FALLBACK] Using mock data for debugging');
-      setTransactions(mockTransactions);
-      setTotalCount(mockTransactions.length);
+      // In production, DO NOT show mock data. Only use mock data when explicitly enabled in dev.
+      if (USE_DEV_MOCK_FALLBACK) {
+        if (DEBUG_UI) console.log('🚧 [FALLBACK] Using mock data for debugging (dev flag enabled)');
+        setTransactions(mockTransactions);
+        setTotalCount(mockTransactions.length);
+      } else {
+        if (DEBUG_UI) console.log('🚫 [FALLBACK_DISABLED] Not using mock data fallback');
+        // Keep current state; user sees the error banner and can retry
+      }
     } finally {
       setLoading(false);
       if (DEBUG_UI) console.log('🏁 [TRANSACTION_DEBUG] Transaction load completed');
