@@ -394,6 +394,35 @@ class TransactionApi {
     }
   }
 
+  // New: Range summary (inclusive)
+  static async getDailySummaryRange(startDate: string, endDate: string, apiOptions?: ApiOptions): Promise<{
+    totalAmount: number;
+    totalTransactions: number;
+    paidTransactions?: number;
+    unpaidTransactions?: number;
+    registeredCustomers?: number;
+    paymentModeBreakdown: Record<string, { amount: number; count: number }>;
+    salesAgentBreakdown: Array<{ agent_name: string; amount: number; count: number }>;
+  }> {
+    const finalUrl = `/transactions/reports/daily?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+    console.log('🔗 [API_DEBUG] getDailySummaryRange URL:', finalUrl);
+    console.log('🔗 [API_DEBUG] Full URL with base:', `${API_BASE_URL}${finalUrl}`);
+
+    try {
+      const response = await this.fetchWithAuth(finalUrl, {}, apiOptions);
+      console.log('📡 [API_DEBUG] getDailySummaryRange response status:', response.status);
+      const summary = await response.json();
+      console.log('📊 [API_DEBUG] getDailySummaryRange parsed response:', {
+        totalAmount: summary.totalAmount,
+        totalTransactions: summary.totalTransactions
+      });
+      return summary;
+    } catch (error) {
+      console.error('❌ [API_DEBUG] Error in getDailySummaryRange:', error);
+      throw error;
+    }
+  }
+
   static async generateDailyReport(request: ReportGenerationRequest, apiOptions?: ApiOptions): Promise<DailyReport> {
     const response = await this.fetchWithAuth('/transactions/reports/daily', {
       method: 'POST',

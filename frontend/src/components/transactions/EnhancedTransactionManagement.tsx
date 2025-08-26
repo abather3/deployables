@@ -254,8 +254,21 @@ const EnhancedTransactionManagement: React.FC = () => {
     paymentModeBreakdown: Record<string, { amount: number; count: number }>;
     salesAgentBreakdown: Array<{ agent_name: string; amount: number; count: number }>;
   } | null>(null);
+  // Range summary state
+  const [rangeSummary, setRangeSummary] = useState<{
+    totalAmount: number;
+    totalTransactions: number;
+    paidTransactions?: number;
+    unpaidTransactions?: number;
+    registeredCustomers?: number;
+    paymentModeBreakdown: Record<string, { amount: number; count: number }>;
+    salesAgentBreakdown: Array<{ agent_name: string; amount: number; count: number }>;
+  } | null>(null);
   // Selected date for daily summary (YYYY-MM-DD)
   const [dailySummaryDate, setDailySummaryDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  // Range input state
+  const [rangeStart, setRangeStart] = useState<string>('');
+  const [rangeEnd, setRangeEnd] = useState<string>('');
   
   // Check if user is admin
   const isAdmin = user?.role === UserRole.ADMIN;
@@ -733,6 +746,19 @@ const EnhancedTransactionManagement: React.FC = () => {
       console.error('❌ [DAILY_SUMMARY_DEBUG] Error loading daily summary:', err);
       // Fallback to null if API fails
       setDailySummary(null);
+    }
+  };
+
+  // Load range summary
+  const loadRangeSummary = async () => {
+    if (!rangeStart || !rangeEnd) return;
+    try {
+      const summary = await TransactionApi.getDailySummaryRange(rangeStart, rangeEnd);
+      setRangeSummary(summary);
+    } catch (err) {
+      console.error('❌ [DAILY_SUMMARY_DEBUG] Error loading range summary:', err);
+      setRangeSummary(null);
+      setError('Failed to load range summary.');
     }
   };
 
@@ -2364,6 +2390,30 @@ const EnhancedTransactionManagement: React.FC = () => {
                     <Typography variant="h6" gutterBottom>
                       📊 Daily Transaction Summaries
                     </Typography>
+                  </Box>
+
+                  {/* Range selector for Range Summary */}
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
+                    <TextField
+                      label="Start Date"
+                      type="date"
+                      value={rangeStart}
+                      onChange={(e) => setRangeStart(e.target.value)}
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                      label="End Date"
+                      type="date"
+                      value={rangeEnd}
+                      onChange={(e) => setRangeEnd(e.target.value)}
+                      size="small"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                    <Button variant="contained" size="small" onClick={() => loadRangeSummary()} disabled={!rangeStart || !rangeEnd}>
+                      Load Range Summary
+                    </Button>
+                  </Box>
                     <Tooltip 
                       title={
                         <Box sx={{ p: 1 }}>
@@ -2381,7 +2431,6 @@ const EnhancedTransactionManagement: React.FC = () => {
                         <WarningIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                  </Box>
                   <Alert severity="info" sx={{ mb: 3 }}>
                     <Typography variant="body2">
                       <strong>📈 Revenue Reporting:</strong> This summary shows total transaction amounts for business reporting. 
@@ -2447,6 +2496,23 @@ const EnhancedTransactionManagement: React.FC = () => {
                     </Box>
                   </Box>
                   
+                  {/* If range summary loaded, show a compact Range Summary block */}
+                  {rangeSummary && (
+                    <Box sx={{ mb: 2, p: 2, border: '1px dashed #ddd', borderRadius: 1, backgroundColor: '#fafafa' }}>
+                      <Typography variant="subtitle1" sx={{ mb: 1 }}>📆 Range Summary ({rangeStart} → {rangeEnd})</Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2 }}>
+                        <Box sx={{ textAlign: 'center', p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+                          <Typography variant="body2" color="text.secondary">Total Transactions</Typography>
+                          <Typography variant="h6" color="primary">{rangeSummary.totalTransactions}</Typography>
+                        </Box>
+                        <Box sx={{ textAlign: 'center', p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+                          <Typography variant="body2" color="text.secondary">Total Revenue</Typography>
+                          <Typography variant="h6" color="success.main">{formatCurrency(rangeSummary.totalAmount)}</Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+
                   {/* Payment Mode Breakdown */}
                   <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>Payment Mode Breakdown</Typography>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
