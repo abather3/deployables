@@ -254,6 +254,8 @@ const EnhancedTransactionManagement: React.FC = () => {
     paymentModeBreakdown: Record<string, { amount: number; count: number }>;
     salesAgentBreakdown: Array<{ agent_name: string; amount: number; count: number }>;
   } | null>(null);
+  // Selected date for daily summary (YYYY-MM-DD)
+  const [dailySummaryDate, setDailySummaryDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
   // Check if user is admin
   const isAdmin = user?.role === UserRole.ADMIN;
@@ -654,25 +656,25 @@ const EnhancedTransactionManagement: React.FC = () => {
   useEffect(() => {
     if (tabValue === 1) {
       loadDailyReports();
-      loadDailySummary();
+      loadDailySummary(dailySummaryDate);
     }
-  }, [tabValue]);
+  }, [tabValue, dailySummaryDate]);
 
-  // Find the most recent date with transactions and load that summary
-  const loadDailySummary = async () => {
+  // Load daily summary for a specific date; if empty, it will try recent dates
+  const loadDailySummary = async (targetDate?: string) => {
     console.log('🔄 [DAILY_SUMMARY_DEBUG] Starting smart loadDailySummary...');
     
     try {
-      // First, try today's date
-      const today = new Date().toISOString().split('T')[0];
-      console.log('📅 [DAILY_SUMMARY_DEBUG] Checking today\'s date first:', today);
+      // First, try the selected date (or today if none provided)
+      const selected = targetDate || new Date().toISOString().split('T')[0];
+      console.log('📅 [DAILY_SUMMARY_DEBUG] Requesting date:', selected);
       
-      let summary = await TransactionApi.getDailySummary(today);
-      console.log('📊 [DAILY_SUMMARY_DEBUG] Today\'s summary:', summary);
+      let summary = await TransactionApi.getDailySummary(selected);
+      console.log('📊 [DAILY_SUMMARY_DEBUG] Selected date summary:', summary);
       
-      // If today has no transactions, search for the most recent date with transactions
+      // If selected date has no transactions, search for the most recent date with transactions
       if (!summary || summary.totalTransactions === 0) {
-        console.log('🔍 [DAILY_SUMMARY_DEBUG] No transactions today, searching for most recent date with data...');
+        console.log('🔍 [DAILY_SUMMARY_DEBUG] No transactions on selected date, searching recent dates...');
         
         // Search the past 7 days for transaction data
         let foundDate = null;
@@ -698,11 +700,13 @@ const EnhancedTransactionManagement: React.FC = () => {
         
         if (foundDate) {
           console.log(`🎯 [DAILY_SUMMARY_DEBUG] Using date with transactions: ${foundDate}`);
+          setDailySummaryDate(foundDate);
         } else {
           console.log('❌ [DAILY_SUMMARY_DEBUG] No transactions found in the past 7 days');
         }
       } else {
-        console.log('✅ [DAILY_SUMMARY_DEBUG] Using today\'s date - has transactions');
+        console.log('✅ [DAILY_SUMMARY_DEBUG] Using selected date - has transactions');
+        setDailySummaryDate(selected);
       }
       
       // Debug payment mode breakdown
@@ -2335,6 +2339,23 @@ const EnhancedTransactionManagement: React.FC = () => {
               <Typography variant="body2" color="text.secondary">
                 Generate and manage daily financial reports with expense tracking and cash turnover calculations.
               </Typography>
+
+              {/* Date selector for Daily Summary */}
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mt: 1 }}>
+                <TextField
+                  label="Summary Date"
+                  type="date"
+                  value={dailySummaryDate}
+                  onChange={(e) => {
+                    const d = e.target.value;
+                    setDailySummaryDate(d);
+                    loadDailySummary(d);
+                  }}
+                  size="small"
+                  InputLabelProps={{ shrink: true }}
+                />
+                <Button variant="outlined" size="small" onClick={() => loadDailySummary(dailySummaryDate)}>Refresh</Button>
+              </Box>
               
               {/* Daily Transaction Summaries */}
               <Card sx={{ mt: 3 }}>
@@ -2374,9 +2395,9 @@ const EnhancedTransactionManagement: React.FC = () => {
                       <Typography variant="body2" color="text.secondary">Total Transactions</Typography>
                       <Typography variant="h6" color="primary">
                         {dailySummary ? dailySummary.totalTransactions : (() => {
-                          const today = new Date().toISOString().split('T')[0];
+                          const dateSel = dailySummaryDate;
                           return transactions.filter((t: any) => {
-                            try { return new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                            try { return new Date(t.transaction_date).toISOString().split('T')[0] === dateSel; } catch { return false; }
                           }).length;
                         })()}
                       </Typography>
@@ -2386,9 +2407,9 @@ const EnhancedTransactionManagement: React.FC = () => {
                       <Typography variant="body2" color="text.secondary">Total Revenue</Typography>
                       <Typography variant="h6" color="success.main">
                         {formatCurrency(dailySummary ? dailySummary.totalAmount : (() => {
-                          const today = new Date().toISOString().split('T')[0];
+                          const dateSel = dailySummaryDate;
                           const todays = transactions.filter((t: any) => {
-                            try { return new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                            try { return new Date(t.transaction_date).toISOString().split('T')[0] === dateSel; } catch { return false; }
                           });
                           return todays.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
                         })())}
@@ -2403,9 +2424,9 @@ const EnhancedTransactionManagement: React.FC = () => {
                             .filter(([mode]) => mode !== PaymentMode.CASH)
                             .reduce((sum, [, data]) => sum + data.count, 0)
                         ) : (() => {
-                          const today = new Date().toISOString().split('T')[0];
+                          const dateSel = dailySummaryDate;
                           return transactions.filter((t: any) => {
-                            try { return t.payment_mode !== PaymentMode.CASH && new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                            try { return t.payment_mode !== PaymentMode.CASH && new Date(t.transaction_date).toISOString().split('T')[0] === dateSel; } catch { return false; }
                           }).length;
                         })()}
                       </Typography>
@@ -2417,9 +2438,9 @@ const EnhancedTransactionManagement: React.FC = () => {
                         {dailySummary ? (
                           dailySummary.paymentModeBreakdown[PaymentMode.CASH]?.count || 0
                         ) : (() => {
-                          const today = new Date().toISOString().split('T')[0];
+                          const dateSel = dailySummaryDate;
                           return transactions.filter((t: any) => {
-                            try { return t.payment_mode === PaymentMode.CASH && new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                            try { return t.payment_mode === PaymentMode.CASH && new Date(t.transaction_date).toISOString().split('T')[0] === dateSel; } catch { return false; }
                           }).length;
                         })()}
                       </Typography>
@@ -2474,9 +2495,9 @@ const EnhancedTransactionManagement: React.FC = () => {
                       
                       // Fallback to local transaction data if no API data
                       if (!modeData) {
-                        const today = new Date().toISOString().split('T')[0];
+                        const dateSel = dailySummaryDate;
                         const modeTransactions = transactions.filter((t: any) => {
-                          try { return t.payment_mode === mode && new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                          try { return t.payment_mode === mode && new Date(t.transaction_date).toISOString().split('T')[0] === dateSel; } catch { return false; }
                         });
                         modeCount = modeTransactions.length;
                         modeTotal = modeTransactions.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);

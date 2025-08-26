@@ -83,13 +83,42 @@ router.get('/:id', authenticateToken, logActivity('get_transaction'), async (req
   }
 });
 
-// Get daily summary
+// Get daily summary (supports either ?date=YYYY-MM-DD or ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD)
 router.get('/reports/daily', authenticateToken, logActivity('get_daily_summary'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { date } = req.query;
-    const targetDate = date ? new Date(date as string) : new Date();
-    
-    const summary = await TransactionService.getDailySummary(targetDate);
+    const { date, startDate, endDate } = req.query as { date?: string; startDate?: string; endDate?: string };
+
+    // Generate a correlation id for tracing
+    const cid = `ROUTE_DAILYSUM_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    // Helper to validate YYYY-MM-DD (lenient: accepts full ISO but uses date part only)
+    const parseDateInput = (input?: string): Date | undefined => {
+      if (!input) return undefined;
+      const d = new Date(input);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+
+    let summary;
+    if (startDate && endDate) {
+      const start = parseDateInput(startDate);
+      const end = parseDateInput(endDate);
+      if (!start || !end) {
+        res.status(400).json({ error: 'Invalid startDate or endDate. Use YYYY-MM-DD.' });
+        return;
+      }
+      // Ensure start <= end
+      if (start > end) {
+        res.status(400).json({ error: 'startDate must be before or equal to endDate' });
+        return;
+      }
+      console.log(`[${cid}] GET /reports/daily range: ${start.toISOString().split('T')[0]}..${end.toISOString().split('T')[0]} tz=Asia/Manila`);
+      summary = await TransactionService.getSummaryRange(start, end, 'Asia/Manila');
+    } else {
+      const target = parseDateInput(date) || new Date();
+      console.log(`[${cid}] GET /reports/daily date: ${target.toISOString().split('T')[0]} tz=Asia/Manila`);
+      summary = await TransactionService.getDailySummary(target);
+    }
+
     res.json(summary);
   } catch (error) {
     console.error('Error getting daily summary:', error);

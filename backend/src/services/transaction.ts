@@ -510,10 +510,34 @@ SELECT
     paymentModeBreakdown: Record<PaymentMode, { amount: number; count: number }>;
     salesAgentBreakdown: Array<{ agent_name: string; amount: number; count: number }>;
   }> {
-    // Normalize date to a YYYY-MM-DD string for date-only filtering in SQL
-    const dateOnly = new Date(date).toISOString().split('T')[0];
+    // Backward-compatible wrapper: summary for a single day (Asia/Manila)
+    return this.getSummaryRange(date, date, 'Asia/Manila');
+  }
 
-    // Expressions reused across queries to ensure consistent calculations with list/find endpoints
+  /**
+   * Get summary for a date range (inclusive), normalized to a specific timezone for date-only matching.
+   * Defaults to Asia/Manila as requested.
+   */
+  static async getSummaryRange(
+    startDate: Date,
+    endDate: Date,
+    timezone: string = 'Asia/Manila'
+  ): Promise<{
+    totalAmount: number;
+    totalTransactions: number;
+    paidTransactions: number;
+    unpaidTransactions: number;
+    registeredCustomers: number;
+    paymentModeBreakdown: Record<PaymentMode, { amount: number; count: number }>;
+    salesAgentBreakdown: Array<{ agent_name: string; amount: number; count: number }>;
+  }> {
+    const cid = `DAILYSUM_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const startDateOnly = new Date(startDate).toISOString().split('T')[0];
+    const endDateOnly = new Date(endDate).toISOString().split('T')[0];
+
+    console.log(`[${cid}] getSummaryRange start: ${startDateOnly}, end: ${endDateOnly}, tz: ${timezone}`);
+
+    // Reusable expressions to ensure consistent calculations
     const effectiveAmountExpr = `
       CAST(
         CASE 
@@ -528,7 +552,6 @@ SELECT
         END AS NUMERIC
       )`;
 
-    // Use LATERAL join to fetch latest settlement payment mode safely
     const derivedPaymentModeExpr = `
       COALESCE(
         ps_latest.payment_mode,
@@ -540,19 +563,47 @@ SELECT
         END
       )`;
 
-    // 1) Global totals using effective amount for the requested date (date-only filter)
+    // Use timezone-local date extraction for filters
+    const dateExpr = `DATE(t.transaction_date AT TIME ZONE '${timezone}')`;
+    const custDateExpr = `DATE(c.created_at AT TIME ZONE '${timezone}')`;
+
+    // Helper to execute and log queries with correlation id
+    const run = async (name: string, sql: string, params: any[]) => {
+      try {
+        console.log(`[${cid}] SQL(${name}) params=${JSON.stringify(params)} sql=${sql.replace(/\s+/g, ' ').trim().slice(0, 200)}...`);
+        const result = await pool.query(sql, params);
+        console.log(`[${cid}] SQL(${name}) ok: rows=${result.rowCount}`);
+        return result;
+      } catch (err: any) {
+        console.error(`[${cid}] SQL(${name}) error:`, {
+          code: err?.code,
+          detail: err?.detail,
+          hint: err?.hint,
+          position: err?.position,
+          schema: err?.schema,
+          table: err?.table,
+          column: err?.column,
+          constraint: err?.constraint,
+          message: err?.message,
+        });
+        console.error(`[${cid}] SQL(${name}) failed SQL:`, sql);
+        throw err;
+      }
+    };
+
+    // 1) Global totals
     const totalsQ = `
       SELECT COUNT(*)::int AS total_transactions,
              COALESCE(SUM(${effectiveAmountExpr}),0)::numeric AS total_amount
       FROM transactions t
       LEFT JOIN customers c ON t.customer_id = c.id
-      WHERE DATE(t.transaction_date) = $1::date
+      WHERE ${dateExpr} BETWEEN $1::date AND $2::date
     `;
 
-    // 2) Per-mode breakdown using derived payment mode and effective amount
+    // 2) Per-mode breakdown
     const modesQ = `
       SELECT ${derivedPaymentModeExpr} AS payment_mode,
-             COUNT(t.*)::int AS count,
+             COUNT(*)::int AS count,
              COALESCE(SUM(${effectiveAmountExpr}),0)::numeric AS amount
       FROM transactions t
       LEFT JOIN customers c ON t.customer_id = c.id
@@ -563,21 +614,19 @@ SELECT
         ORDER BY ps.paid_at DESC
         LIMIT 1
       ) ps_latest ON true
-      WHERE DATE(t.transaction_date) = $1::date
+      WHERE ${dateExpr} BETWEEN $1::date AND $2::date
       GROUP BY 1
     `;
 
-    // 3) Payment status breakdown (date-only filter)
+    // 3) Payment status breakdown
     const paymentStatusQ = `
-      SELECT 
-        payment_status,
-        COUNT(*)::int as count
-      FROM transactions
-      WHERE DATE(transaction_date) = $1::date
+      SELECT payment_status, COUNT(*)::int as count
+      FROM transactions t
+      WHERE ${dateExpr} BETWEEN $1::date AND $2::date
       GROUP BY payment_status
     `;
 
-    // 4) Sales agent breakdown using effective amount
+    // 4) Sales agent breakdown
     const agentQuery = `
       SELECT 
         u.full_name as agent_name,
@@ -586,18 +635,19 @@ SELECT
       FROM transactions t
       LEFT JOIN customers c ON t.customer_id = c.id
       LEFT JOIN users u ON t.sales_agent_id = u.id
-      WHERE DATE(t.transaction_date) = $1::date
+      WHERE ${dateExpr} BETWEEN $1::date AND $2::date
       GROUP BY u.id, u.full_name
       ORDER BY amount DESC
     `;
 
     try {
+      const params = [startDateOnly, endDateOnly];
       const [totalsResult, modesResult, paymentStatusResult, agentResult, registeredCustomersResult] = await Promise.all([
-        pool.query(totalsQ, [dateOnly]),
-        pool.query(modesQ, [dateOnly]),
-        pool.query(paymentStatusQ, [dateOnly]),
-        pool.query(agentQuery, [dateOnly]),
-        pool.query(`SELECT COUNT(*)::int AS count FROM customers WHERE DATE(created_at) = $1::date`, [dateOnly])
+        run('totals', totalsQ, params),
+        run('modes', modesQ, params),
+        run('status', paymentStatusQ, params),
+        run('agents', agentQuery, params),
+        run('customers', `SELECT COUNT(*)::int AS count FROM customers c WHERE ${custDateExpr} BETWEEN $1::date AND $2::date`, params)
       ]);
 
       const paymentModeBreakdown: Record<PaymentMode, { amount: number; count: number }> = {
@@ -608,15 +658,12 @@ SELECT
         [PaymentMode.BANK_TRANSFER]: { amount: 0, count: 0 }
       };
 
-      // Get global totals
       const globalTotals = totalsResult.rows[0] || { total_transactions: null, total_amount: null };
       const totalAmount = parseFloat(globalTotals.total_amount || '0') || 0;
       const totalTransactions = parseInt(globalTotals.total_transactions || '0') || 0;
 
-      // Calculate payment status breakdown
       let paidTransactions = 0;
       let unpaidTransactions = 0;
-      
       paymentStatusResult.rows.forEach(row => {
         const count = parseInt(row.count || '0') || 0;
         if (row.payment_status === 'paid') {
@@ -626,7 +673,6 @@ SELECT
         }
       });
 
-      // Map mode results into the predefined object
       modesResult.rows.forEach(row => {
         const mode = row.payment_mode as PaymentMode;
         if (paymentModeBreakdown.hasOwnProperty(mode)) {
@@ -637,7 +683,7 @@ SELECT
         }
       });
 
-      return {
+      const result = {
         totalAmount,
         totalTransactions,
         paidTransactions,
@@ -650,9 +696,17 @@ SELECT
         })),
         registeredCustomers: parseInt(registeredCustomersResult.rows?.[0]?.count || '0')
       };
+
+      console.log(`[${cid}] getSummaryRange result:`, {
+        totalAmount: result.totalAmount,
+        totalTransactions: result.totalTransactions,
+        paidTransactions: result.paidTransactions,
+        unpaidTransactions: result.unpaidTransactions,
+      });
+
+      return result;
     } catch (error) {
-      // Log and propagate database errors for easier diagnosis in production
-      console.error('[getDailySummary] Database error:', error);
+      console.error(`[${cid}] getSummaryRange error:`, error);
       throw error;
     }
   }
