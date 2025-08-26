@@ -2373,14 +2373,25 @@ const EnhancedTransactionManagement: React.FC = () => {
                       <Typography variant="h4" color="primary">💵</Typography>
                       <Typography variant="body2" color="text.secondary">Total Transactions</Typography>
                       <Typography variant="h6" color="primary">
-                        {dailySummary ? dailySummary.totalTransactions : transactions.length}
+                        {dailySummary ? dailySummary.totalTransactions : (() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          return transactions.filter((t: any) => {
+                            try { return new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                          }).length;
+                        })()}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'center', p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
                       <Typography variant="h4" color="success.main">💰</Typography>
                       <Typography variant="body2" color="text.secondary">Total Revenue</Typography>
                       <Typography variant="h6" color="success.main">
-                        {formatCurrency(dailySummary ? dailySummary.totalAmount : transactions.reduce((sum, t) => sum + t.amount, 0))}
+                        {formatCurrency(dailySummary ? dailySummary.totalAmount : (() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          const todays = transactions.filter((t: any) => {
+                            try { return new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                          });
+                          return todays.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+                        })())}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'center', p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
@@ -2391,7 +2402,12 @@ const EnhancedTransactionManagement: React.FC = () => {
                           Object.entries(dailySummary.paymentModeBreakdown)
                             .filter(([mode]) => mode !== PaymentMode.CASH)
                             .reduce((sum, [, data]) => sum + data.count, 0)
-                        ) : transactions.filter(t => t.payment_mode !== PaymentMode.CASH).length}
+                        ) : (() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          return transactions.filter((t: any) => {
+                            try { return t.payment_mode !== PaymentMode.CASH && new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                          }).length;
+                        })()}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'center', p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
@@ -2400,7 +2416,12 @@ const EnhancedTransactionManagement: React.FC = () => {
                       <Typography variant="h6" color="warning.main">
                         {dailySummary ? (
                           dailySummary.paymentModeBreakdown[PaymentMode.CASH]?.count || 0
-                        ) : transactions.filter(t => t.payment_mode === PaymentMode.CASH).length}
+                        ) : (() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          return transactions.filter((t: any) => {
+                            try { return t.payment_mode === PaymentMode.CASH && new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                          }).length;
+                        })()}
                       </Typography>
                     </Box>
                   </Box>
@@ -2453,9 +2474,12 @@ const EnhancedTransactionManagement: React.FC = () => {
                       
                       // Fallback to local transaction data if no API data
                       if (!modeData) {
-                        const modeTransactions = transactions.filter(t => t.payment_mode === mode);
+                        const today = new Date().toISOString().split('T')[0];
+                        const modeTransactions = transactions.filter((t: any) => {
+                          try { return t.payment_mode === mode && new Date(t.transaction_date).toISOString().split('T')[0] === today; } catch { return false; }
+                        });
                         modeCount = modeTransactions.length;
-                        modeTotal = modeTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                        modeTotal = modeTransactions.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
                         console.log(`🔄 [PAYMENT_MODE_DEBUG] Using fallback for ${mode}: count=${modeCount}, total=${modeTotal}`);
                       }
                       

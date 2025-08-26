@@ -510,11 +510,8 @@ SELECT
     paymentModeBreakdown: Record<PaymentMode, { amount: number; count: number }>;
     salesAgentBreakdown: Array<{ agent_name: string; amount: number; count: number }>;
   }> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Normalize date to a YYYY-MM-DD string for date-only filtering in SQL
+    const dateOnly = new Date(date).toISOString().split('T')[0];
 
     // Expressions reused across queries to ensure consistent calculations with list/find endpoints
     const effectiveAmountExpr = `
@@ -542,13 +539,13 @@ SELECT
         END
       )`;
 
-    // 1) Global totals using effective amount
+    // 1) Global totals using effective amount for the requested date (date-only filter)
     const totalsQ = `
       SELECT COUNT(*)::int AS total_transactions,
              COALESCE(SUM(${effectiveAmountExpr}),0)::numeric AS total_amount
       FROM transactions t
       LEFT JOIN customers c ON t.customer_id = c.id
-      WHERE t.transaction_date BETWEEN $1 AND $2
+      WHERE DATE(t.transaction_date) = $1::date
     `;
 
     // 2) Per-mode breakdown using derived payment mode and effective amount
@@ -558,17 +555,17 @@ SELECT
              COALESCE(SUM(${effectiveAmountExpr}),0)::numeric AS amount
       FROM transactions t
       LEFT JOIN customers c ON t.customer_id = c.id
-      WHERE t.transaction_date BETWEEN $1 AND $2
-      GROUP BY payment_mode
+      WHERE DATE(t.transaction_date) = $1::date
+      GROUP BY 1
     `;
 
-    // 3) Payment status breakdown (unchanged)
+    // 3) Payment status breakdown (date-only filter)
     const paymentStatusQ = `
       SELECT 
         payment_status,
         COUNT(*)::int as count
       FROM transactions
-      WHERE transaction_date BETWEEN $1 AND $2
+      WHERE DATE(transaction_date) = $1::date
       GROUP BY payment_status
     `;
 
@@ -581,18 +578,18 @@ SELECT
       FROM transactions t
       LEFT JOIN customers c ON t.customer_id = c.id
       LEFT JOIN users u ON t.sales_agent_id = u.id
-      WHERE t.transaction_date BETWEEN $1 AND $2
+      WHERE DATE(t.transaction_date) = $1::date
       GROUP BY u.id, u.full_name
       ORDER BY amount DESC
     `;
 
     try {
-      const [totalsResult, modesResult, paymentStatusResult, agentResult, customerCount] = await Promise.all([
-        pool.query(totalsQ, [startOfDay, endOfDay]),
-        pool.query(modesQ, [startOfDay, endOfDay]),
-        pool.query(paymentStatusQ, [startOfDay, endOfDay]),
-        pool.query(agentQuery, [startOfDay, endOfDay]),
-        CustomerService.countRegisteredToday()
+      const [totalsResult, modesResult, paymentStatusResult, agentResult, registeredCustomersResult] = await Promise.all([
+        pool.query(totalsQ, [dateOnly]),
+        pool.query(modesQ, [dateOnly]),
+        pool.query(paymentStatusQ, [dateOnly]),
+        pool.query(agentQuery, [dateOnly]),
+        pool.query(`SELECT COUNT(*)::int AS count FROM customers WHERE DATE(created_at) = $1::date`, [dateOnly])
       ]);
 
       const paymentModeBreakdown: Record<PaymentMode, { amount: number; count: number }> = {
@@ -643,10 +640,11 @@ SELECT
           amount: parseFloat(row.amount || '0') || 0,
           count: parseInt(row.count || '0') || 0
         })),
-        registeredCustomers: customerCount
+        registeredCustomers: parseInt(registeredCustomersResult.rows?.[0]?.count || '0')
       };
     } catch (error) {
-      // Properly propagate database errors
+      // Log and propagate database errors for easier diagnosis in production
+      console.error('[getDailySummary] Database error:', error);
       throw error;
     }
   }
