@@ -1386,6 +1386,19 @@ GET /api/sms/status          - SMS service status
 
 ## 📝 Change Log
 
+### 2025-08-24 - Transaction Payment Mode and Balance Fixes
+- ✅ Balance calculation and payment status are now correct for partial vs paid
+  - ✅ Backend: `TransactionService.updatePaymentStatus` now derives an effective amount from `t.amount` or `customer.payment_info.amount` only; no longer uses `(paid_amount + balance_amount)` to avoid circular logic
+  - ✅ Backend: `balance_amount` is clamped with `GREATEST(..., 0)` and 'paid' requires `effective_amount > 0`
+  - ✅ Result: Partial payments no longer appear as 'paid' prematurely
+- ✅ Payment Mode now reflects the user-selected method (e.g., GCash/Maya) instead of defaulting to 'Cash'
+  - ✅ Backend list/find queries derive `payment_mode` with this priority: latest settlement → customer's `payment_info.mode` when transaction mode is missing/empty/'cash' → normalized transaction mode
+  - ✅ Frontend settlement dialog defaults to `transaction.payment_mode` instead of always 'CASH'
+  - ✅ Frontend normalization no longer pre-fills an empty API `payment_mode` with 'CASH'; empty indicates unknown and avoids masking real values
+  - ✅ Result: Transactions show GCash/Maya correctly on first display; settlements inherit the correct default
+- 📦 Commits: `001e8d5`, `224a988`
+- 🔁 Build: Backend compiled successfully; changes pushed to main; frontend component updated and pushed
+
 ### 2025-08-20 - TypeScript Compilation Fix
 - ✅ **TypeScript TS2339 Error Resolution**: Fixed 'Property replace does not exist on type never' error
   - ✅ **File**: `frontend/src/components/transactions/EnhancedTransactionManagement.tsx`

@@ -516,25 +516,53 @@ SELECT
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // 1. Global totals - COUNT ALL TRANSACTIONS AND SUM THEIR TOTAL AMOUNTS (for transparency)
+    // Expressions reused across queries to ensure consistent calculations with list/find endpoints
+    const effectiveAmountExpr = `
+      CAST(
+        CASE 
+          WHEN t.amount IS NULL OR t.amount <= 0 THEN 
+            CASE 
+              WHEN NULLIF((c.payment_info::jsonb->>'amount'),'') IS NOT NULL THEN 
+                COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\\.-]', '', 'g'), '')::numeric, 0)
+              WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
+              ELSE 0
+            END
+          ELSE t.amount
+        END AS NUMERIC
+      )`;
+
+    const derivedPaymentModeExpr = `
+      COALESCE(
+        (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
+        CASE 
+          WHEN (t.payment_mode IS NULL OR t.payment_mode = '' OR t.payment_mode = 'cash') 
+               AND NULLIF((c.payment_info::jsonb->>'mode'), '') IS NOT NULL THEN 
+            LOWER(REPLACE((c.payment_info::jsonb->>'mode'), ' ', '_'))
+          ELSE LOWER(REPLACE(COALESCE(t.payment_mode, ''), ' ', '_'))
+        END
+      )`;
+
+    // 1) Global totals using effective amount
     const totalsQ = `
       SELECT COUNT(*)::int AS total_transactions,
-             COALESCE(SUM(amount),0)::numeric AS total_amount
-      FROM transactions
-      WHERE transaction_date BETWEEN $1 AND $2
-    `;
-
-    // 2. Per-mode breakdown - GET TRANSACTION AMOUNTS BY PAYMENT MODE (consistent with totals)
-    const modesQ = `
-      SELECT t.payment_mode,
-             COUNT(t.*)::int AS count,
-             COALESCE(SUM(t.amount),0)::numeric AS amount
+             COALESCE(SUM(${effectiveAmountExpr}),0)::numeric AS total_amount
       FROM transactions t
+      LEFT JOIN customers c ON t.customer_id = c.id
       WHERE t.transaction_date BETWEEN $1 AND $2
-      GROUP BY t.payment_mode
     `;
 
-    // Payment status breakdown
+    // 2) Per-mode breakdown using derived payment mode and effective amount
+    const modesQ = `
+      SELECT ${derivedPaymentModeExpr} AS payment_mode,
+             COUNT(t.*)::int AS count,
+             COALESCE(SUM(${effectiveAmountExpr}),0)::numeric AS amount
+      FROM transactions t
+      LEFT JOIN customers c ON t.customer_id = c.id
+      WHERE t.transaction_date BETWEEN $1 AND $2
+      GROUP BY payment_mode
+    `;
+
+    // 3) Payment status breakdown (unchanged)
     const paymentStatusQ = `
       SELECT 
         payment_status,
@@ -544,13 +572,14 @@ SELECT
       GROUP BY payment_status
     `;
 
-    // Sales agent breakdown - use transaction amounts for consistency
+    // 4) Sales agent breakdown using effective amount
     const agentQuery = `
       SELECT 
         u.full_name as agent_name,
         COUNT(t.*)::int as count,
-        COALESCE(SUM(t.amount),0)::numeric as amount
+        COALESCE(SUM(${effectiveAmountExpr}),0)::numeric as amount
       FROM transactions t
+      LEFT JOIN customers c ON t.customer_id = c.id
       LEFT JOIN users u ON t.sales_agent_id = u.id
       WHERE t.transaction_date BETWEEN $1 AND $2
       GROUP BY u.id, u.full_name
@@ -574,7 +603,7 @@ SELECT
         [PaymentMode.BANK_TRANSFER]: { amount: 0, count: 0 }
       };
 
-      // Get global totals from the first query with better null handling
+      // Get global totals
       const globalTotals = totalsResult.rows[0] || { total_transactions: null, total_amount: null };
       const totalAmount = parseFloat(globalTotals.total_amount || '0') || 0;
       const totalTransactions = parseInt(globalTotals.total_transactions || '0') || 0;
@@ -592,7 +621,7 @@ SELECT
         }
       });
 
-      // Map results into the predefined paymentModeBreakdown object with better null handling
+      // Map mode results into the predefined object
       modesResult.rows.forEach(row => {
         const mode = row.payment_mode as PaymentMode;
         if (paymentModeBreakdown.hasOwnProperty(mode)) {
