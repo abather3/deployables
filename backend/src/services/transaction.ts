@@ -528,9 +528,10 @@ SELECT
         END AS NUMERIC
       )`;
 
+    // Use LATERAL join to fetch latest settlement payment mode safely
     const derivedPaymentModeExpr = `
       COALESCE(
-        (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
+        ps_latest.payment_mode,
         CASE 
           WHEN (t.payment_mode IS NULL OR t.payment_mode = '' OR t.payment_mode = 'cash') 
                AND NULLIF((c.payment_info::jsonb->>'mode'), '') IS NOT NULL THEN 
@@ -555,6 +556,13 @@ SELECT
              COALESCE(SUM(${effectiveAmountExpr}),0)::numeric AS amount
       FROM transactions t
       LEFT JOIN customers c ON t.customer_id = c.id
+      LEFT JOIN LATERAL (
+        SELECT ps.payment_mode
+        FROM payment_settlements ps
+        WHERE ps.transaction_id = t.id
+        ORDER BY ps.paid_at DESC
+        LIMIT 1
+      ) ps_latest ON true
       WHERE DATE(t.transaction_date) = $1::date
       GROUP BY 1
     `;
@@ -573,7 +581,7 @@ SELECT
     const agentQuery = `
       SELECT 
         u.full_name as agent_name,
-        COUNT(t.*)::int as count,
+        COUNT(*)::int as count,
         COALESCE(SUM(${effectiveAmountExpr}),0)::numeric as amount
       FROM transactions t
       LEFT JOIN customers c ON t.customer_id = c.id
