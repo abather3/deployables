@@ -9,30 +9,19 @@ ALTER TABLE transactions
 
 -- 2) Backfill base_amount intelligently
 -- Strategy: prefer customer's payment_info.amount; else paid+balance - items_sum; else (t.amount - items_sum); else t.amount; else 0
-WITH item_totals AS (
-  SELECT ti.transaction_id, COALESCE(SUM(ti.quantity * ti.unit_price), 0)::NUMERIC(14,2) AS items_sum
-  FROM transaction_items ti
-  GROUP BY ti.transaction_id
-), paid_totals AS (
-  SELECT ps.transaction_id, COALESCE(SUM(ps.amount), 0)::NUMERIC(14,2) AS paid_sum
-  FROM payment_settlements ps
-  GROUP BY ps.transaction_id
-)
 UPDATE transactions t
 SET base_amount = COALESCE(
   -- Prefer customer's configured amount if present
   NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::NUMERIC,
   -- Next, try paid + balance - items_sum
-  GREATEST(COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) - COALESCE(it.items_sum, 0), 0),
+  GREATEST(COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) - COALESCE((SELECT SUM(ti.quantity * ti.unit_price) FROM transaction_items ti WHERE ti.transaction_id = t.id), 0), 0),
   -- Next, t.amount - items_sum (in case t.amount already includes items)
-  GREATEST(COALESCE(t.amount, 0) - COALESCE(it.items_sum, 0), 0),
+  GREATEST(COALESCE(t.amount, 0) - COALESCE((SELECT SUM(ti2.quantity * ti2.unit_price) FROM transaction_items ti2 WHERE ti2.transaction_id = t.id), 0), 0),
   -- Fallback to t.amount
   COALESCE(t.amount, 0),
   0
 )
 FROM customers c
-LEFT JOIN item_totals it ON it.transaction_id = t.id
-LEFT JOIN paid_totals pt ON pt.transaction_id = t.id
 WHERE t.customer_id = c.id;
 
 -- 3) Recreate recalc_transaction_totals() to compute amount = base_amount + items_sum
