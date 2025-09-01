@@ -136,16 +136,17 @@ export interface Transaction {
   customer_id: number;
   or_number: string;
   amount: number;
+  base_amount?: number;  // Original/base transaction amount (from customer config)
   payment_mode: PaymentMode;
   sales_agent_id: number;
-  cashier_id?: number;
-  transaction_date: Date;
-  created_at: Date;
-  paid_amount: number;
-  balance_amount: number;
-  payment_status: PaymentStatus;
+  cashier_id: number;
+  paid_amount?: number;
+  balance_amount?: number;
+  payment_status?: PaymentStatus;
+  transaction_date?: Date;
+  created_at?: Date;
+  updated_at?: Date;
 }
-
 export interface PaymentSettlement {
   id: number;
   transaction_id: number;

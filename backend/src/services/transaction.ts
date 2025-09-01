@@ -83,10 +83,10 @@ export class TransactionService {
     // Ensure we have a valid balance_amount that matches the amount
     const query = `
       INSERT INTO transactions (
-        customer_id, or_number, amount, payment_mode, 
+        customer_id, or_number, amount, base_amount, payment_mode, 
         sales_agent_id, cashier_id, transaction_date, paid_amount, balance_amount, payment_status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, 0, $3, 'unpaid')
+      VALUES ($1, $2, $3, $3, $4, $5, $6, CURRENT_TIMESTAMP, 0, $3, 'unpaid')
       RETURNING *
     `;
 
@@ -118,19 +118,17 @@ SELECT
         t.id,
         t.customer_id,
         t.or_number,
-        -- Compute reliable amount; prefer customer's payment_info when t.amount is invalid, use (paid+balance) only as last resort
-        CAST(
-          CASE 
-            WHEN t.amount IS NULL OR t.amount <= 0 THEN 
-              CASE 
-                WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
-                  COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
-                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                ELSE 0
-              END
-            ELSE t.amount
-          END AS NUMERIC
-        )::FLOAT as amount,
+        -- Compute amount as base_amount + items_sum, with safe fallbacks for base
+        CAST((
+          COALESCE(t.base_amount,
+            CASE 
+              WHEN t.amount IS NOT NULL AND t.amount > 0 THEN t.amount
+              WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
+                COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+              ELSE 0
+            END
+          ) + COALESCE((SELECT SUM(quantity * unit_price) FROM transaction_items ti WHERE ti.transaction_id = t.id), 0)
+        ) AS NUMERIC)::FLOAT as amount,
         -- Derive payment_mode: prefer latest settlement; else use customer's payment_info if transaction mode is missing or default 'cash'; else normalize transaction mode
         COALESCE(
           (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
@@ -169,20 +167,16 @@ SELECT
         t.id,
         t.customer_id,
         t.or_number,
-        -- Compute reliable amount; prefer customer's payment_info when t.amount is invalid, use (paid+balance) only as last resort
-        CAST(
-          CASE 
-            WHEN t.amount IS NULL OR t.amount <= 0 THEN 
-              CASE 
-                WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
-                  COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
-                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                ELSE 0
-              END
-            ELSE t.amount
-          END AS NUMERIC
-        )::FLOAT as amount,
-        -- Derive payment_mode: prefer latest settlement; else use customer's payment_info if transaction mode is missing or default 'cash'; else normalize transaction mode
+        CAST((
+          COALESCE(t.base_amount,
+            CASE 
+              WHEN t.amount IS NOT NULL AND t.amount > 0 THEN t.amount
+              WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
+                COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
+              ELSE 0
+            END
+          ) + COALESCE((SELECT SUM(quantity * unit_price) FROM transaction_items ti WHERE ti.transaction_id = t.id), 0)
+        ) AS NUMERIC)::FLOAT as amount,
         COALESCE(
           (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
           CASE 
@@ -233,20 +227,17 @@ SELECT
         t.id,
         t.customer_id,
         t.or_number,
-        -- Compute a reliable amount at the source. Prefer customer's payment_info when t.amount is invalid; use (paid+balance) only as last resort
-        CAST(
-          CASE 
-            WHEN t.amount IS NULL OR t.amount <= 0 THEN 
-              CASE 
-                WHEN NULLIF((c.payment_info::jsonb->>'amount'),'') IS NOT NULL THEN 
-                  COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
-                WHEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0) > 0 THEN COALESCE(t.paid_amount, 0) + COALESCE(t.balance_amount, 0)
-                ELSE 0
-              END
-            ELSE t.amount
-          END 
-          AS NUMERIC
-        )::FLOAT as amount,
+        -- Compute amount as base_amount + items_sum with safe fallbacks
+        CAST((
+          COALESCE(t.base_amount,
+            CASE 
+              WHEN t.amount IS NOT NULL AND t.amount > 0 THEN t.amount
+              WHEN NULLIF((c.payment_info::jsonb->>'amount'),'') IS NOT NULL THEN 
+                COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\\.-]', '', 'g'), '')::numeric, 0)
+              ELSE 0
+            END
+          ) + COALESCE((SELECT SUM(quantity * unit_price) FROM transaction_items ti WHERE ti.transaction_id = t.id), 0)
+        ) AS NUMERIC)::FLOAT as amount,
         -- Derive payment_mode: prefer latest settlement; else use customer's payment_info if transaction mode is missing or default 'cash'; else normalize transaction mode
         COALESCE(
           (SELECT ps.payment_mode FROM payment_settlements ps WHERE ps.transaction_id = t.id ORDER BY ps.paid_at DESC LIMIT 1),
@@ -366,15 +357,17 @@ SELECT
       WITH effective AS (
         SELECT 
           t.id,
-          -- Compute effective amount using transaction.amount if set; otherwise prefer customer's payment_info.amount; do not use (paid+balance) here to avoid circular errors
-          CAST(
-            CASE 
-              WHEN t.amount IS NOT NULL AND t.amount > 0 THEN t.amount
-              WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
-                COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\.-]', '', 'g'), '')::numeric, 0)
-              ELSE 0
-            END AS NUMERIC
-          )::FLOAT AS effective_amount
+          -- Compute effective amount = base_amount (or fallback) + items_sum
+          CAST((
+            COALESCE(t.base_amount,
+              CASE 
+                WHEN t.amount IS NOT NULL AND t.amount > 0 THEN t.amount
+                WHEN NULLIF((c.payment_info::jsonb->>'amount'), '') IS NOT NULL THEN 
+                  COALESCE(NULLIF(regexp_replace((c.payment_info::jsonb->>'amount'), '[^0-9\\.-]', '', 'g'), '')::numeric, 0)
+                ELSE 0
+              END
+            ) + COALESCE((SELECT SUM(quantity * unit_price) FROM transaction_items ti WHERE ti.transaction_id = t.id), 0)
+          ) AS NUMERIC)::FLOAT AS effective_amount
         FROM transactions t
         LEFT JOIN customers c ON t.customer_id = c.id
         WHERE t.id = $1
@@ -444,9 +437,19 @@ SELECT
 
     Object.entries(updates).forEach(([key, value]) => {
       if (value !== undefined) {
-        setClause.push(`${key} = $${paramCount}`);
-        values.push(value);
-        paramCount++;
+        if (key === 'amount') {
+          // Keep base_amount in sync when updating base amount directly
+          setClause.push(`amount = $${paramCount}`);
+          values.push(value);
+          paramCount++;
+          setClause.push(`base_amount = $${paramCount}`);
+          values.push(value);
+          paramCount++;
+        } else {
+          setClause.push(`${key} = $${paramCount}`);
+          values.push(value);
+          paramCount++;
+        }
       }
     });
 
@@ -470,10 +473,8 @@ SELECT
 
     const transaction = result.rows[0];
 
-    // Check if amount was updated to trigger payment status recalculation
-    if (updates.amount !== undefined) {
-      await TransactionService.updatePaymentStatus(id);
-    }
+    // Recompute totals/status whenever base amount or relevant fields change
+    await TransactionService.updatePaymentStatus(id);
 
     // Emit real-time update
     WebSocketService.emitTransactionUpdate({
