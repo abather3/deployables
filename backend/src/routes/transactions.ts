@@ -1,5 +1,6 @@
 import express, { Router, Response } from 'express';
 import { TransactionService, ReportService } from '../services/transaction';
+import { TransactionItemService } from '../services/transactionItem';
 import { PaymentSettlementService } from '../services/paymentSettlementService';
 import { authenticateToken, requireCashierOrAdmin, requireAdmin, logActivity } from '../middleware/auth';
 import { AuthRequest, PaymentMode } from '../types';
@@ -252,6 +253,111 @@ router.post('/export', authenticateToken, logActivity('export_transactions'), as
     });
   } catch (error) {
     console.error('Error exporting transactions:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Transaction Items (Add-ons)
+router.get('/:id/items', authenticateToken, logActivity('list_transaction_items'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const txId = Number(req.params.id);
+    if (!Number.isInteger(txId)) {
+      res.status(400).json({ error: 'Invalid transaction id' });
+      return;
+    }
+    const items = await TransactionItemService.list(txId);
+    res.json(items);
+  } catch (error) {
+    console.error('Error listing transaction items:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:id/items', authenticateToken, requireCashierOrAdmin, logActivity('add_transaction_item'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const txId = Number(req.params.id);
+    if (!Number.isInteger(txId)) {
+      res.status(400).json({ error: 'Invalid transaction id' });
+      return;
+    }
+
+    const { item_name, description, quantity, unit_price } = req.body || {};
+    if (!item_name || typeof item_name !== 'string') {
+      res.status(400).json({ error: 'item_name is required' });
+      return;
+    }
+    const qty = parseFloat(quantity);
+    const price = parseFloat(unit_price);
+    if (isNaN(qty) || qty <= 0) {
+      res.status(400).json({ error: 'quantity must be a positive number' });
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      res.status(400).json({ error: 'unit_price must be a non-negative number' });
+      return;
+    }
+
+    const result = await TransactionItemService.add(txId, { item_name, description, quantity: qty, unit_price: price });
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Error adding transaction item:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/:id/items/:itemId', authenticateToken, requireCashierOrAdmin, logActivity('update_transaction_item'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const txId = Number(req.params.id);
+    const itemId = Number(req.params.itemId);
+    if (!Number.isInteger(txId) || !Number.isInteger(itemId)) {
+      res.status(400).json({ error: 'Invalid id(s)' });
+      return;
+    }
+
+    const updates: any = {};
+    const { item_name, description, quantity, unit_price } = req.body || {};
+    if (item_name !== undefined) updates.item_name = item_name;
+    if (description !== undefined) updates.description = description;
+    if (quantity !== undefined) {
+      const q = parseFloat(quantity);
+      if (isNaN(q) || q <= 0) { res.status(400).json({ error: 'quantity must be a positive number' }); return; }
+      updates.quantity = q;
+    }
+    if (unit_price !== undefined) {
+      const p = parseFloat(unit_price);
+      if (isNaN(p) || p < 0) { res.status(400).json({ error: 'unit_price must be a non-negative number' }); return; }
+      updates.unit_price = p;
+    }
+
+    const result = await TransactionItemService.update(txId, itemId, updates);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating transaction item:', error);
+    if (error instanceof Error && error.message.includes('not found')) {
+      res.status(404).json({ error: 'Item not found' });
+      return;
+    }
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/:id/items/:itemId', authenticateToken, requireCashierOrAdmin, logActivity('delete_transaction_item'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const txId = Number(req.params.id);
+    const itemId = Number(req.params.itemId);
+    if (!Number.isInteger(txId) || !Number.isInteger(itemId)) {
+      res.status(400).json({ error: 'Invalid id(s)' });
+      return;
+    }
+
+    const result = await TransactionItemService.remove(txId, itemId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error deleting transaction item:', error);
+    if (error instanceof Error && error.message.includes('not found')) {
+      res.status(404).json({ error: 'Item not found' });
+      return;
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -468,6 +468,53 @@ class TransactionApi {
     return response.json();
   }
 
+// Transaction items (add-ons)
+  static async getTransactionItems(transactionId: number): Promise<import('../types').TransactionItem[]> {
+    if (!transactionId || isNaN(transactionId) || transactionId <= 0) {
+      throw new Error('Invalid transaction ID provided for items lookup');
+    }
+    const response = await this.fetchWithAuth(`/transactions/${transactionId}/items`);
+    return response.json();
+  }
+
+  static async addTransactionItem(transactionId: number, item: { item_name: string; description?: string; quantity: number; unit_price: number; }): Promise<{ transaction: Transaction; items: import('../types').TransactionItem[] }> {
+    if (!transactionId || isNaN(transactionId) || transactionId <= 0) {
+      throw new Error('Invalid transaction ID provided for adding item');
+    }
+    const response = await this.fetchWithAuth(`/transactions/${transactionId}/items`, {
+      method: 'POST',
+      body: JSON.stringify(item),
+    });
+    return response.json();
+  }
+
+  static async updateTransactionItem(transactionId: number, itemId: number, updates: Partial<{ item_name: string; description: string; quantity: number; unit_price: number; }>): Promise<{ transaction: Transaction; item: import('../types').TransactionItem }> {
+    if (!transactionId || isNaN(transactionId) || transactionId <= 0) {
+      throw new Error('Invalid transaction ID provided for updating item');
+    }
+    if (!itemId || isNaN(itemId) || itemId <= 0) {
+      throw new Error('Invalid item ID provided for updating item');
+    }
+    const response = await this.fetchWithAuth(`/transactions/${transactionId}/items/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+    return response.json();
+  }
+
+  static async deleteTransactionItem(transactionId: number, itemId: number): Promise<{ transaction: Transaction }> {
+    if (!transactionId || isNaN(transactionId) || transactionId <= 0) {
+      throw new Error('Invalid transaction ID provided for deleting item');
+    }
+    if (!itemId || isNaN(itemId) || itemId <= 0) {
+      throw new Error('Invalid item ID provided for deleting item');
+    }
+    const response = await this.fetchWithAuth(`/transactions/${transactionId}/items/${itemId}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  }
+
   // Settlement operations
   static async createSettlement(transactionId: number, settlementData: {
     amount: number;

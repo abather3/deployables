@@ -71,6 +71,7 @@ import TransactionApi from '../../services/transactionApi';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import AddOnsDialog from './AddOnsDialog';
 
 // UUID generation utility (fallback for frontend)
 const generateUUID = () => {
@@ -223,6 +224,12 @@ const EnhancedTransactionManagement: React.FC = () => {
   const [resetConfirmText, setResetConfirmText] = useState('');
   
   // Settlement dialog
+// Add-ons dialog state
+  const [addOnsOpen, setAddOnsOpen] = useState(false);
+  const [addOnsTx, setAddOnsTx] = useState<Transaction | null>(null);
+  const handleOpenAddOns = (tx: Transaction) => { setAddOnsTx(tx); setAddOnsOpen(true); };
+  const handleCloseAddOns = () => setAddOnsOpen(false);
+
   const [settleDialog, setSettleDialog] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [settlementAmount, setSettlementAmount] = useState(0);
@@ -1653,9 +1660,17 @@ const EnhancedTransactionManagement: React.FC = () => {
             </Typography>
           </Box>
           
-          {/* Settle Button */}
-          {transaction.payment_status !== PaymentStatus.PAID && (
-            <Box sx={{ textAlign: 'center' }}>
+{/* Actions */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleOpenAddOns(transaction)}
+              sx={{ mt: 1 }}
+            >
+              Add-ons
+            </Button>
+            {transaction.payment_status !== PaymentStatus.PAID && (
               <Button
                 variant="contained"
                 color="primary"
@@ -1663,10 +1678,10 @@ const EnhancedTransactionManagement: React.FC = () => {
                 onClick={() => handleSettleTransaction(transaction)}
                 sx={{ mt: 1 }}
               >
-                Settle Payment
+                Settle
               </Button>
-            </Box>
-          )}
+            )}
+          </Box>
         </Stack>
       </CardContent>
     </Card>
@@ -1740,7 +1755,14 @@ const EnhancedTransactionManagement: React.FC = () => {
                 <TableCell>{transaction.sales_agent_name}</TableCell>
                 <TableCell>{new Date(transaction.transaction_date).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
+<Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleOpenAddOns(transaction)}
+                    >
+                      Add-ons
+                    </Button>
                     {transaction.payment_status !== PaymentStatus.PAID && (
                       <Button
                         variant="outlined"
@@ -3185,9 +3207,22 @@ const EnhancedTransactionManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      {renderDailyReportDialog()}
+{renderDailyReportDialog()}
       {renderExportDialog()}
       {renderPastReportsDialog()}
+
+      <AddOnsDialog
+        open={addOnsOpen}
+        transaction={addOnsTx}
+        onClose={handleCloseAddOns}
+        onUpdated={(updated) => {
+          setTransactions(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+          // if dialog transaction is the one updated, reflect changes in selected refs
+          if (addOnsTx && updated && addOnsTx.id === updated.id) {
+            setAddOnsTx({ ...addOnsTx, ...updated });
+          }
+        }}
+      />
       
       {/* Delete Report Dialog - Admin Only */}
       <Dialog open={deleteReportDialog} onClose={() => setDeleteReportDialog(false)} maxWidth="sm" fullWidth>

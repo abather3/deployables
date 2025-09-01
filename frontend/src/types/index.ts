@@ -144,6 +144,17 @@ export interface Transaction {
   payment_status: PaymentStatus;
 }
 
+export interface TransactionItem {
+  id: number;
+  transaction_id: number;
+  item_name: string;
+  description?: string;
+  quantity: number;
+  unit_price: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PaymentSettlement {
   id: number;
   transaction_id: number;
