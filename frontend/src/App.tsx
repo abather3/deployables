@@ -55,11 +55,13 @@ const createAppTheme = (darkMode: boolean) => createTheme({
 const AppContent: React.FC = () => {
   const { darkMode } = useTheme();
   const theme = createAppTheme(darkMode);
+  // Only show the debug panel when explicitly enabled and not in production
+  const showDebug = process.env.REACT_APP_SHOW_DEBUG === 'true' && process.env.NODE_ENV !== 'production';
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <DebugEnv />
+      {showDebug && <DebugEnv />}
       <DarkModeWrapper>
         <NotificationProvider>
           <AuthProvider>

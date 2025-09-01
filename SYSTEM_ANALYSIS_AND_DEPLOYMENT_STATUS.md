@@ -1,10 +1,45 @@
 # ESCASHOP SYSTEM ANALYSIS AND DEPLOYMENT STATUS
 
-**Document Version:** 3.0  
-**Last Updated:** 2025-08-20 06:08 Philippine Time  
-**Session Focus:** TYPESCRIPT COMPILATION ERROR RESOLUTION - ✅ RESOLVED
+**Document Version:** 3.1  
+**Last Updated:** 2025-09-02 07:25 Philippine Time  
+**Session Focus:** Transaction Add-ons (Line Items) + Base Amount migration + Render deploy fix
 
 ---
+
+## 🆕 Feature & Schema Update (2025-09-01 → 2025-09-02)
+
+### Summary
+- Introduced transaction line items (Add-ons) to support accessories and per-item entries.
+- Amount is now computed as: amount = base_amount + sum(transaction_items).
+- Added backend CRUD endpoints and frontend dialog to manage add-ons.
+- Fixed Render deploy migration issue in 007 migration (invalid reference to FROM-clause entry for table "t").
+
+### Changes
+- DB
+  - 006_transaction_items.sql: New table transaction_items with recalculation triggers on items and settlements.
+  - 007_add_base_amount.sql: New column transactions.base_amount, intelligent backfill, and recalc function to compute amount = base + items.
+  - 007 migration hotfix: rewrote backfill with correlated subqueries to satisfy Postgres (commit 6efc4de).
+- Backend
+  - New service: backend/src/services/transactionItem.ts (list/add/update/remove + websocket emits).
+  - Routes: GET/POST/PUT/DELETE /transactions/:id/items.
+  - TransactionService: create now seeds base_amount; list/find/updatePaymentStatus compute totals from base + items; update syncs base_amount when amount is updated.
+- Frontend
+  - New component: AddOnsDialog.tsx for per-transaction items.
+  - EnhancedTransactionManagement.tsx: wired Add-ons UI; state update on item changes.
+  - API: get/add/update/delete transaction items.
+
+### Deployment Timeline
+- feat: add transaction items (Add-ons) end-to-end → 146184d
+- fix: amounts should be base + add-ons (adds 007 migration) → 37fea5b
+- chore: trigger redeploy on Render → 6311f15
+- fix(migration): 007 migration uses correlated subqueries; avoid alias reference to target table in JOIN ON → 6efc4de
+
+### Verification Checklist (Post-deploy)
+- [ ] Add-ons dialog shows existing items per transaction.
+- [ ] Adding an item increases Amount by unit_price × quantity.
+- [ ] Amount = previous base_amount + items_sum; Balance and Status recompute correctly.
+- [ ] Fully paid transactions are read-only in Add-ons dialog.
+- [ ] Daily summaries still reflect total transaction Amount values.
 
 ## ✅ RESOLVED PRODUCTION ISSUE
 
@@ -340,6 +375,13 @@ app.get('/health', (req, res) => {
 ## 🚀 DEPLOYMENT HISTORY
 
 ### **Git Commit Timeline**
+
+- 2025-09-02
+  - 6efc4de: fix(migration) 007 backfill uses correlated subqueries (Render error 42P01 resolved)
+  - 6311f15: chore: trigger redeploy on Render
+- 2025-09-01
+  - 37fea5b: fix: amounts should be base + add-ons (introduces base_amount + recalc)
+  - 146184d: feat: add transaction items (Add-ons) end-to-end
 
 1. **Initial Fix Attempt**
    - **Commit:** `1e24455`
@@ -1385,6 +1427,18 @@ GET /api/sms/status          - SMS service status
 ---
 
 ## 📝 Change Log
+
+### 2025-09-02 - Transaction Add-ons & Base Amount Unification
+- ✅ Feature: Line-item Add-ons for transactions
+  - New table: transaction_items; triggers recalc amounts and status on write
+  - UI: AddOnsDialog on Transactions table; disabled for fully paid
+  - API: CRUD endpoints for items
+- ✅ Schema: base_amount column + recalc
+  - amount now equals base_amount + items_sum
+  - Backfill strategy prefers customer payment_info amount, then paid + balance minus items, then other safe fallbacks
+- 🐛 Fix: Render migration error 42P01 on 007 migration
+  - Rewrote backfill to use correlated subqueries; redeployed successfully
+- 📦 Commits: 146184d, 37fea5b, 6311f15, 6efc4de
 
 ### 2025-08-24 - Transaction Payment Mode and Balance Fixes
 - ✅ Balance calculation and payment status are now correct for partial vs paid
