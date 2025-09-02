@@ -377,6 +377,12 @@ app.get('/health', (req, res) => {
 ### **Git Commit Timeline**
 
 - 2025-09-02
+  - 59c3c8b: fix(customers) interpret YYYY-MM-DD filters as Asia/Manila day boundaries
+  - 4a3f75a: fix(notifications) support legacy and isolated events; dashboard registered fallback
+  - 699af95: fix(cashier) fallback for registered count; skip mark-read for fallback IDs
+  - 3cb1360: feat(notifications) bell fallback recent customers
+  - 06ba0c5: fix(notifications) avoid 500; self-heal tables
+  - 254872d: chore(ui) hide DebugEnv overlay in production
   - 6efc4de: fix(migration) 007 backfill uses correlated subqueries (Render error 42P01 resolved)
   - 6311f15: chore: trigger redeploy on Render
 - 2025-09-01
@@ -1427,6 +1433,21 @@ GET /api/sms/status          - SMS service status
 ---
 
 ## 📝 Change Log
+
+### 2025-09-02 - Notifications and Dashboard Quality-of-Life Fixes
+- ✅ UI: Removed floating Debug ENV overlay in production; can be re-enabled with REACT_APP_SHOW_DEBUG=true in non-prod
+- ✅ Notifications: Avoid 500s on /api/customer-notifications/active; auto-create tables if missing; return success with empty list
+- ✅ Notification Bell: Now listens to both isolated and legacy events
+  - Events: new_customer_registration_notification (isolated) and customer_registration_notification (legacy)
+  - Unified mapper ensures unread badge increments and list updates in both cases
+  - Fallback: when no active unread notifications, bell shows last 10 recent customers
+- ✅ Cashier Dashboard "Recent Customer Registrations":
+  - Fallback to show today's customers; if none, show most recent overall
+  - Skip backend mark-read for fallback items; still actionable (View/Start Transaction)
+- ✅ Registered Customers Today count:
+  - Client-side fallback: if summary returns 0, fetch /customers?startDate=today&endDate=today and use total
+  - Server-side fix: interpret plain YYYY-MM-DD date filters as Asia/Manila day boundaries in /customers list
+- 📦 Commits: 254872d, 06ba0c5, cca8810, 3cb1360, 699af95, 4a3f75a, 59c3c8b
 
 ### 2025-09-02 - Transaction Add-ons & Base Amount Unification
 - ✅ Feature: Line-item Add-ons for transactions
