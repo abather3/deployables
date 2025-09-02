@@ -58,6 +58,50 @@ export interface NotificationAction {
 export class CustomerNotificationService {
   
   /**
+   * Ensure required tables for customer notifications exist.
+   * If the tables are missing (e.g., on a fresh environment where init did not run),
+   * run the minimal migrations to create them. Best-effort, safe to call repeatedly.
+   */
+  private static async ensureTables(): Promise<void> {
+    try {
+      // Quick existence check
+      await pool.query('SELECT 1 FROM customer_notifications LIMIT 1');
+    } catch (err: any) {
+      if (err && (err.code === '42P01' || /relation\s+"?customer_notifications"?\s+does not exist/i.test(String(err.message)))) {
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const basePath = path.join(__dirname, '..', '..', 'database', 'migrations');
+
+          const schemaPath = path.join(basePath, '009_create_customer_notifications.sql');
+          if (fs.existsSync(schemaPath)) {
+            const sql = fs.readFileSync(schemaPath, 'utf8');
+            await pool.query(sql);
+          }
+
+          // Try to apply performance indexes, but ignore errors if extensions are missing
+          try {
+            const idxPath = path.join(basePath, '011_add_performance_indexes_customer_notifications.sql');
+            if (fs.existsSync(idxPath)) {
+              const idxSql = fs.readFileSync(idxPath, 'utf8');
+              await pool.query(idxSql);
+            }
+          } catch (idxErr) {
+            console.warn('[CUSTOMER_NOTIFICATION] Index migration skipped or failed (non-fatal):', idxErr?.message || idxErr);
+          }
+
+          console.log('[CUSTOMER_NOTIFICATION] ensureTables(): Created missing customer_notifications tables');
+        } catch (migrateErr) {
+          console.error('[CUSTOMER_NOTIFICATION] Failed to create missing tables:', migrateErr);
+        }
+      } else {
+        // Other errors should be surfaced to caller
+        throw err;
+      }
+    }
+  }
+
+  /**
    * Create a new customer registration notification
    * ISOLATED: Does not interfere with queue management
    */
@@ -154,7 +198,7 @@ export class CustomerNotificationService {
    * Get active notifications for a specific role
    * ISOLATED: Only returns customer registration notifications
    */
-  static async getActiveNotifications(
+static async getActiveNotifications(
     targetRole: string,
     userId?: number
   ): Promise<CustomerNotification[]> {
@@ -181,11 +225,21 @@ export class CustomerNotificationService {
       ORDER BY cn.created_at DESC
       LIMIT 50
     `;
-    
+
     const params = userId ? [targetRole, userId] : [targetRole];
-    const result = await pool.query(query, params);
-    
-    return result.rows;
+
+    try {
+      const result = await pool.query(query, params);
+      return result.rows;
+    } catch (error: any) {
+      // If tables are missing, try to create them and return an empty list gracefully
+      if (error && (error.code === '42P01' || /relation\s+"?customer_notifications"?\s+does not exist/i.test(String(error.message)))) {
+        await this.ensureTables();
+        return [];
+      }
+      console.error('[CUSTOMER_NOTIFICATION] getActiveNotifications error:', error);
+      throw error;
+    }
   }
   
   /**

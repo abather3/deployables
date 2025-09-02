@@ -36,7 +36,8 @@ router.get('/active',
       
     } catch (error) {
       console.error('[CUSTOMER_NOTIFICATION] Error getting active notifications:', error);
-      res.status(500).json({ error: 'Failed to get notifications' });
+      // Graceful fallback: return empty list to avoid breaking dashboard if tables are missing
+      res.status(200).json({ success: true, notifications: [], count: 0, error: 'no_notifications_or_service_unavailable' });
     }
   }
 );
