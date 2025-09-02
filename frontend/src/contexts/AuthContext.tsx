@@ -274,7 +274,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Session management effects
   useEffect(() => {
     const handleSessionExpired = () => {
+      // Show subtle warning then auto-logout to avoid stuck UI when fetch utils get 401
       dispatch({ type: 'SESSION_EXPIRE_WARNING', payload: true });
+      // Perform automatic logout
+      logout();
     };
 
     const handleSessionExpiredDialog = () => {
@@ -305,7 +308,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         document.removeEventListener(event, handleUserActivity, true);
       });
     };
-  }, [state.sessionExpireWarning]);
+  }, [state.sessionExpireWarning, logout]);
 
   const login = async (email: string, password: string) => {
     logWithTimestamp('🔑 Login function called', {

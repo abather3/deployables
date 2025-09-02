@@ -1,5 +1,7 @@
 // API utility functions for making HTTP requests
 
+import { TokenManager } from '../services/authService';
+
 // Defensive API_BASE_URL construction
 let API_BASE_URL: string;
 if (process.env.REACT_APP_API_URL) {
@@ -72,13 +74,45 @@ export const apiRequest = async (
 };
 
 /**
- * API request with automatic token handling
+ * Attempt to silently refresh token; on failure, auto-logout and redirect.
+ */
+async function handleAuthFailureAndMaybeRetry(
+  endpoint: string,
+  options: ApiRequestOptions
+): Promise<Response> {
+  try {
+    const newToken = await TokenManager.refreshToken();
+    const retryHeaders = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+      Authorization: `Bearer ${newToken}`,
+    } as Record<string, string>;
+
+    return apiRequest(endpoint, { ...options, headers: retryHeaders });
+  } catch (refreshError) {
+    console.error('Silent refresh failed in fetch utils:', refreshError);
+    // Clear tokens and notify app
+    TokenManager.clearTokens();
+    try {
+      window.dispatchEvent(new CustomEvent('session-expired'));
+      window.dispatchEvent(new CustomEvent('session-expired-dialog'));
+    } catch {}
+    // Redirect to login if not already there
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+    throw refreshError instanceof Error ? refreshError : new Error('Unauthorized');
+  }
+}
+
+/**
+ * API request with automatic token handling and auto-logout on 401/403.
  */
 export const authenticatedApiRequest = async (
   endpoint: string,
   options: ApiRequestOptions = {}
 ): Promise<Response> => {
-  const token = localStorage.getItem('accessToken');
+  const token = TokenManager.getAccessToken() || localStorage.getItem('accessToken');
   
   const authOptions: ApiRequestOptions = {
     ...options,
@@ -89,7 +123,14 @@ export const authenticatedApiRequest = async (
     },
   };
 
-  return apiRequest(endpoint, authOptions);
+  const response = await apiRequest(endpoint, authOptions);
+
+  if (response.status === 401 || response.status === 403) {
+    // Try a one-time silent refresh, then retry the request
+    return handleAuthFailureAndMaybeRetry(endpoint, authOptions);
+  }
+
+  return response;
 };
 
 /**
