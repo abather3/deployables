@@ -270,6 +270,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+n  // Define logout earlier so it can be referenced below
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      dispatch({ type: 'LOGOUT' });
+    }
+  };
 
   // Session management effects
   useEffect(() => {
@@ -362,17 +374,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return loginPromise;
   };
 
-  const logout = async () => {
-    try {
-      await authService.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      dispatch({ type: 'LOGOUT' });
-    }
-  };
 
   const clearError = () => {
     dispatch({ type: 'CLEAR_ERROR' });
