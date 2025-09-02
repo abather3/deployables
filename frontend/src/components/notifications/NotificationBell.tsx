@@ -67,18 +67,55 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
   useEffect(() => {
     if (!socket || !isEnabled) return;
 
-    const handleNewNotification = (data: CustomerRegistrationNotification) => {
-      console.log('[NOTIFICATION_BELL] New notification received:', data);
-      
+    const pushNotification = (data: CustomerRegistrationNotification) => {
       setNotifications(prev => {
         const exists = prev.some(n => n.notification_id === data.notification_id);
         if (exists) return prev;
-        
         const updated = [data, ...prev];
-        return updated.slice(0, 20); // Keep last 20 notifications
+        return updated.slice(0, 20);
       });
-      
       setUnreadCount(prev => prev + 1);
+    };
+
+    const handleNewNotification = (data: CustomerRegistrationNotification) => {
+      console.log('[NOTIFICATION_BELL] New notification received (isolated):', data);
+      pushNotification(data);
+    };
+
+    // Legacy/alternate event from WebSocketService.emitCustomerRegistrationNotification
+    const handleLegacyNotification = (payload: any) => {
+      try {
+        console.log('[NOTIFICATION_BELL] Legacy notification received:', payload);
+        const flags = payload.priority_flags || { senior_citizen: false, pregnant: false, pwd: false };
+        const mapped: CustomerRegistrationNotification = {
+          notification_id: payload.id || `legacy_${Date.now()}`,
+          type: 'customer_registration',
+          title: 'New Customer Registration',
+          message: payload.message || `New registration: ${payload.customer_name}`,
+          customer_data: {
+            id: payload.customer_id,
+            name: payload.customer_name,
+            or_number: payload.or_number,
+            token_number: payload.token_number,
+            contact_number: payload.metadata?.contact_number,
+            priority_type: payload.priority_type || (flags.senior_citizen ? 'Senior Citizen' : flags.pregnant ? 'Pregnant' : flags.pwd ? 'PWD' : 'Regular Customer'),
+            priority_flags: flags,
+            payment_amount: Number(payload.payment_amount || 0),
+            payment_mode: payload.payment_mode || 'cash',
+          },
+          created_by_name: payload.created_by_name || 'Sales Agent',
+          created_by_role: 'sales',
+          expires_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          actions: [
+            { action_type: 'view_customer', label: 'View Details', is_primary: false },
+            { action_type: 'start_transaction', label: 'Process Transaction', is_primary: true },
+          ],
+        };
+        pushNotification(mapped);
+      } catch (e) {
+        console.error('[NOTIFICATION_BELL] Failed to map legacy notification:', e);
+      }
     };
 
     const handleNotificationRead = (data: { notificationId: string }) => {
@@ -90,10 +127,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
     };
 
     socket.on('new_customer_registration_notification', handleNewNotification);
+    socket.on('customer_registration_notification', handleLegacyNotification);
     socket.on('customer_notification_marked_read', handleNotificationRead);
 
     return () => {
       socket.off('new_customer_registration_notification', handleNewNotification);
+      socket.off('customer_registration_notification', handleLegacyNotification);
       socket.off('customer_notification_marked_read', handleNotificationRead);
     };
   }, [socket, isEnabled]);

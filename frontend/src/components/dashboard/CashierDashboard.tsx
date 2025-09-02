@@ -130,18 +130,54 @@ const CashierDashboard: React.FC = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleNewNotification = (data: CustomerRegistrationNotification) => {
-      console.log('[CASHIER_DASHBOARD] New notification received:', data);
-      
+    const pushNotification = (data: CustomerRegistrationNotification) => {
       setNotifications(prev => {
         const exists = prev.some(n => n.notification_id === data.notification_id);
         if (exists) return prev;
-        
         const updated = [data, ...prev];
-        return updated.slice(0, 10); // Keep last 10 notifications
+        return updated.slice(0, 10);
       });
-      
       setUnreadCount(prev => prev + 1);
+    };
+
+    const handleNewNotification = (data: CustomerRegistrationNotification) => {
+      console.log('[CASHIER_DASHBOARD] New notification received (isolated):', data);
+      pushNotification(data);
+    };
+
+    // Legacy/alternate event mapping
+    const handleLegacyNotification = (payload: any) => {
+      try {
+        const flags = payload.priority_flags || { senior_citizen: false, pregnant: false, pwd: false };
+        const mapped: CustomerRegistrationNotification = {
+          notification_id: payload.id || `legacy_${Date.now()}`,
+          type: 'customer_registration',
+          title: 'New Customer Registration',
+          message: payload.message || `New registration: ${payload.customer_name}`,
+          customer_data: {
+            id: payload.customer_id,
+            name: payload.customer_name,
+            or_number: payload.or_number,
+            token_number: payload.token_number,
+            contact_number: payload.metadata?.contact_number,
+            priority_type: payload.priority_type || (flags.senior_citizen ? 'Senior Citizen' : flags.pregnant ? 'Pregnant' : flags.pwd ? 'PWD' : 'Regular Customer'),
+            priority_flags: flags,
+            payment_amount: Number(payload.payment_amount || 0),
+            payment_mode: payload.payment_mode || 'cash',
+          },
+          created_by_name: payload.created_by_name || 'Sales Agent',
+          created_by_role: 'sales',
+          expires_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          actions: [
+            { action_type: 'view_customer', label: 'View Details', is_primary: false },
+            { action_type: 'start_transaction', label: 'Process Transaction', is_primary: true }
+          ]
+        } as any;
+        pushNotification(mapped);
+      } catch (e) {
+        console.error('[CASHIER_DASHBOARD] Failed to map legacy notification:', e);
+      }
     };
 
     const handleQueueUpdate = (data: { totalWaiting?: number; priorityCustomers?: number; averageWaitTime?: number }) => {
@@ -152,10 +188,12 @@ const CashierDashboard: React.FC = () => {
     };
 
     socket.on('new_customer_registration_notification', handleNewNotification);
+    socket.on('customer_registration_notification', handleLegacyNotification);
     socket.on('queue_stats_update', handleQueueUpdate);
 
     return () => {
       socket.off('new_customer_registration_notification', handleNewNotification);
+      socket.off('customer_registration_notification', handleLegacyNotification);
       socket.off('queue_stats_update', handleQueueUpdate);
     };
   }, [socket]);
@@ -290,12 +328,29 @@ const CashierDashboard: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
+        let registered = data.registeredCustomers || 0;
+        // Fallback correction: if API returns 0, query customer list count for today
+        if (registered === 0) {
+          try {
+            const qs = new URLSearchParams({ startDate: today, endDate: today, page: '1', limit: '1' }).toString();
+            const resp = await fetch(`${API_BASE_URL}/customers?${qs}`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+            });
+            if (resp.ok) {
+              const json = await resp.json();
+              const total = json?.pagination?.total;
+              if (typeof total === 'number' && total > 0) registered = total;
+            }
+          } catch (e) {
+            console.warn('[CASHIER_DASHBOARD] Fallback registered count failed:', e);
+          }
+        }
         setDailyStats({
           transactionsToday: data.totalTransactions || 0,
           totalAmount: data.totalAmount || 0,
           paidTransactions: data.paidTransactions || 0,
           unpaidTransactions: data.unpaidTransactions || 0,
-          registeredCustomers: data.registeredCustomers || 0
+          registeredCustomers: registered
         });
       }
     } catch (error) {
