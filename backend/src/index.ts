@@ -51,6 +51,11 @@ if (process.env.NODE_ENV === 'development') {
   app.set('trust proxy', 1); // Trust first proxy
 }
 
+// Health check - MUST be before any rate limiters
+app.get('/healthz', (_req, res) => {
+  res.status(200).send('ok');
+});
+
 // Middleware
 app.use(generalLimiter);
 // CORS configuration with flexible frontend URL support

@@ -6,7 +6,7 @@ services:
     plan: starter
     buildCommand: cd backend && npm ci && npm run build:prod
     startCommand: cd backend && npm start
-    healthCheckPath: /health
+    healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
         value: production

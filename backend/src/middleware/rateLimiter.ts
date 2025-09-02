@@ -36,7 +36,13 @@ export const generalLimiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  handler: (req, res) => {
+  keyGenerator: secureKeyGenerator,
+  // Never rate-limit health checks or static files used by Render
+  skip: (req: Request) => {
+    const p = (req.path || '').toLowerCase();
+    return p === '/healthz' || p === '/health' || p === '/api/health' || p === '/robots.txt';
+  },
+  handler: (req: Request, res: Response) => {
     res.status(429).json({
       error: 'Too many requests, please try again later.',
       retryAfter: isDevelopment ? 60 : 900 // 1 min in dev, 15 min in prod
