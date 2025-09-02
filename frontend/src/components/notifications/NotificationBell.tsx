@@ -107,13 +107,85 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
         const { authenticatedApiRequest, parseApiResponse } = await import('../../utils/api');
         const response = await authenticatedApiRequest('/customer-notifications/active', { method: 'GET' });
         const data = await parseApiResponse<{ success: boolean; notifications: CustomerRegistrationNotification[] }>(response);
-        if (data.success && data.notifications) {
+        if (data.success && Array.isArray(data.notifications)) {
           setNotifications(data.notifications);
           setUnreadCount(data.notifications.length);
           console.log('[NOTIFICATION_BELL] Loaded existing notifications:', data.notifications.length);
+          
+          // Fallback: if none, show last 10 recent customers as informational items
+          if (data.notifications.length === 0) {
+            await loadRecentCustomersFallback();
+          }
+        } else {
+          await loadRecentCustomersFallback();
         }
       } catch (error) {
         console.error('[NOTIFICATION_BELL] Error loading notifications:', error);
+        await loadRecentCustomersFallback();
+      }
+    };
+
+    // Fallback loader shared with dashboard: fetch last 10 recent customers
+    const loadRecentCustomersFallback = async () => {
+      try {
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        // First try today's customers
+        const today = new Date().toISOString().split('T')[0];
+        const makeReq = async (params: Record<string, string>) => {
+          const qs = new URLSearchParams(params).toString();
+          const resp = await fetch(`${API_BASE_URL}/customers?${qs}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+          });
+          if (!resp.ok) return [] as any[];
+          const json = await resp.json();
+          return Array.isArray(json.customers) ? json.customers : [];
+        };
+        
+        let list = await makeReq({ startDate: today, endDate: today, page: '1', limit: '10', sortBy: 'created_at', sortOrder: 'desc' });
+        if (list.length === 0) {
+          // If none today, fetch most recent overall
+          list = await makeReq({ page: '1', limit: '10', sortBy: 'created_at', sortOrder: 'desc' });
+        }
+        
+        const mapped: CustomerRegistrationNotification[] = list.map((c: any) => {
+          const flags = c.priority_flags || { senior_citizen: false, pregnant: false, pwd: false };
+          const priorityType = flags.senior_citizen ? 'Senior Citizen' : flags.pregnant ? 'Pregnant' : flags.pwd ? 'PWD' : 'Regular Customer';
+          const pinfo = c.payment_info || {};
+          const amount = typeof pinfo.amount === 'number' ? pinfo.amount : Number(String(pinfo.amount || '0').replace(/[^0-9.-]/g, '')) || 0;
+          return {
+            notification_id: `customer_${c.id}`,
+            type: 'customer_registration',
+            title: 'New Customer Registration',
+            message: `${c.name} (${priorityType}) registered`,
+            customer_data: {
+              id: c.id,
+              name: c.name,
+              or_number: c.or_number,
+              token_number: c.token_number,
+              contact_number: c.contact_number,
+              priority_type: priorityType,
+              priority_flags: flags,
+              payment_amount: amount,
+              payment_mode: pinfo.mode || 'cash',
+            },
+            created_by_name: c.sales_agent_name || 'Sales Agent',
+            created_by_role: 'sales',
+            expires_at: new Date().toISOString(),
+            created_at: c.created_at || new Date().toISOString(),
+            actions: [
+              { action_type: 'view_customer', label: 'View Details', is_primary: false },
+              { action_type: 'start_transaction', label: 'Process Transaction', is_primary: true },
+            ],
+          } as any;
+        });
+
+        if (mapped.length > 0) {
+          setNotifications(mapped);
+          setUnreadCount(0);
+          console.log('[NOTIFICATION_BELL] Loaded fallback recent customers:', mapped.length);
+        }
+      } catch (e) {
+        console.error('[NOTIFICATION_BELL] Fallback loadRecentCustomers failed:', e);
       }
     };
 
