@@ -198,24 +198,25 @@ const CashierDashboard: React.FC = () => {
   // Fallback: pull the most recent customers created today and render them in the list
   const loadRecentCustomersFallback = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
       const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const params = new URLSearchParams({
-        startDate: today,
-        endDate: today,
-        page: '1',
-        limit: '10',
-        sortBy: 'created_at',
-        sortOrder: 'desc'
-      });
-      const resp = await fetch(`${API_BASE_URL}/customers?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
-      if (!resp.ok) return;
-      const json = await resp.json();
-      const list = Array.isArray(json.customers) ? json.customers : [];
+      const today = new Date().toISOString().split('T')[0];
+
+      const makeReq = async (params: Record<string, string>) => {
+        const qs = new URLSearchParams(params).toString();
+        const resp = await fetch(`${API_BASE_URL}/customers?${qs}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+        });
+        if (!resp.ok) return [] as any[];
+        const json = await resp.json();
+        return Array.isArray(json.customers) ? json.customers : [];
+      };
+
+      // Try today's customers first
+      let list = await makeReq({ startDate: today, endDate: today, page: '1', limit: '10', sortBy: 'created_at', sortOrder: 'desc' });
+      // If none, use most recent overall
+      if (list.length === 0) {
+        list = await makeReq({ page: '1', limit: '10', sortBy: 'created_at', sortOrder: 'desc' });
+      }
 
       const mapped = list.map((c: any) => {
         const flags = c.priority_flags || { senior_citizen: false, pregnant: false, pwd: false };
@@ -309,17 +310,19 @@ const CashierDashboard: React.FC = () => {
       return;
     }
     
-    // Mark notification as read
-    try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      await fetch(`${API_BASE_URL}/customer-notifications/${notificationId}/mark-read`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
-    } catch (error) {
-      console.error('[CASHIER_DASHBOARD] Error marking notification as read:', error);
+    // Mark notification as read (skip for fallback informational items)
+    if (!notificationId.startsWith('customer_')) {
+      try {
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        await fetch(`${API_BASE_URL}/customer-notifications/${notificationId}/mark-read`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        });
+      } catch (error) {
+        console.error('[CASHIER_DASHBOARD] Error marking notification as read:', error);
+      }
     }
 
     // Remove from local state
