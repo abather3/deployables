@@ -22,7 +22,8 @@ import {
   Chip,
   IconButton,
   Alert,
-  Snackbar
+  Snackbar,
+  Tooltip
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -419,34 +420,46 @@ const UserManagement: React.FC = () => {
                   {new Date(user.created_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell align="center">
-                  <IconButton
-                    onClick={() => handleOpenDialog(user)}
-                    color="primary"
-                    size="small"
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    onClick={() => handleToggleStatus(user)}
-                    color={user.status === 'active' ? 'error' : 'success'}
-                    size="small"
-                  >
-                    {user.status === 'active' ? <LockIcon /> : <LockOpenIcon />}
-                  </IconButton>
-                  <IconButton
-                    onClick={() => handleResetPassword(user)}
-                    color="warning"
-                    size="small"
-                  >
-                    <RefreshIcon />
-                  </IconButton>
-                  <IconButton
-                    onClick={() => handleOpenDeleteDialog(user)}
-                    color="error"
-                    size="small"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                  <Tooltip title="Edit User" arrow>
+                    <IconButton
+                      onClick={() => handleOpenDialog(user)}
+                      color="primary"
+                      size="small"
+                      aria-label="Edit User"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={user.status === 'active' ? 'Deactivate User' : 'Activate User'} arrow>
+                    <IconButton
+                      onClick={() => handleToggleStatus(user)}
+                      color={user.status === 'active' ? 'error' : 'success'}
+                      size="small"
+                      aria-label={user.status === 'active' ? 'Deactivate User' : 'Activate User'}
+                    >
+                      {user.status === 'active' ? <LockIcon /> : <LockOpenIcon />}
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Reset Password" arrow>
+                    <IconButton
+                      onClick={() => handleResetPassword(user)}
+                      color="warning"
+                      size="small"
+                      aria-label="Reset Password"
+                    >
+                      <RefreshIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Delete User" arrow>
+                    <IconButton
+                      onClick={() => handleOpenDeleteDialog(user)}
+                      color="error"
+                      size="small"
+                      aria-label="Delete User"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
