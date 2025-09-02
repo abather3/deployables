@@ -270,7 +270,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-n  // Define logout earlier so it can be referenced below
+
+  // Define logout earlier so it can be referenced below
   const logout = async () => {
     try {
       await authService.logout();
