@@ -171,13 +171,91 @@ const CashierDashboard: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.notifications) {
-          setNotifications(data.notifications.slice(0, 10));
-          setUnreadCount(data.notifications.length);
+        if (data.success && Array.isArray(data.notifications)) {
+          const items = data.notifications.slice(0, 10);
+          setNotifications(items);
+          setUnreadCount(items.length);
+
+          // Fallback: when there are no active unread notifications, show today's recent customers
+          if (items.length === 0) {
+            await loadRecentCustomersFallback();
+          }
+        } else {
+          // Fallback when unexpected payload
+          await loadRecentCustomersFallback();
         }
+      } else {
+        // On non-OK response, try fallback
+        await loadRecentCustomersFallback();
       }
     } catch (error) {
       console.error('[CASHIER_DASHBOARD] Error loading notifications:', error);
+      // Fallback on error as well
+      await loadRecentCustomersFallback();
+    }
+  };
+
+  // Fallback: pull the most recent customers created today and render them in the list
+  const loadRecentCustomersFallback = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const params = new URLSearchParams({
+        startDate: today,
+        endDate: today,
+        page: '1',
+        limit: '10',
+        sortBy: 'created_at',
+        sortOrder: 'desc'
+      });
+      const resp = await fetch(`${API_BASE_URL}/customers?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+      if (!resp.ok) return;
+      const json = await resp.json();
+      const list = Array.isArray(json.customers) ? json.customers : [];
+
+      const mapped = list.map((c: any) => {
+        const flags = c.priority_flags || { senior_citizen: false, pregnant: false, pwd: false };
+        const priorityType = flags.senior_citizen ? 'Senior Citizen' : flags.pregnant ? 'Pregnant' : flags.pwd ? 'PWD' : 'Regular Customer';
+        const pinfo = c.payment_info || {};
+        const amount = typeof pinfo.amount === 'number' ? pinfo.amount : Number(String(pinfo.amount || '0').replace(/[^0-9.-]/g, '')) || 0;
+        return {
+          notification_id: `customer_${c.id}`,
+          type: 'customer_registration',
+          title: 'New Customer Registration',
+          message: `${c.name} (${priorityType}) registered` ,
+          customer_data: {
+            id: c.id,
+            name: c.name,
+            or_number: c.or_number,
+            token_number: c.token_number,
+            contact_number: c.contact_number,
+            priority_type: priorityType,
+            priority_flags: flags,
+            payment_amount: amount,
+            payment_mode: pinfo.mode || 'cash'
+          },
+          created_by_name: c.sales_agent_name || 'Sales Agent',
+          created_by_role: 'sales',
+          expires_at: new Date().toISOString(),
+          created_at: c.created_at || new Date().toISOString(),
+          actions: [
+            { action_type: 'view_customer', label: 'View Details', is_primary: false },
+            { action_type: 'start_transaction', label: 'Process Transaction', is_primary: true }
+          ]
+        } as any;
+      });
+
+      if (mapped.length > 0) {
+        setNotifications(mapped);
+        // Fallback items are informational; don't count as unread
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error('[CASHIER_DASHBOARD] Fallback loadRecentCustomers failed:', err);
     }
   };
 
