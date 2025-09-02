@@ -80,11 +80,25 @@ router.get('/', authenticateToken, logActivity('list_customers'), async (req: Au
       effectiveSalesAgentId = salesAgentId ? parseInt(salesAgentId as string, 10) : undefined;
     }
     
+    // Timezone-aware date parsing for YYYY-MM-DD inputs (Asia/Manila)
+    const toManilaBoundary = (dateStr?: string, endOfDay: boolean = false): Date | undefined => {
+      if (!dateStr) return undefined;
+      // If input already includes time or timezone, trust it as-is
+      if (/T|Z|\+\d{2}:?\d{2}/i.test(dateStr)) {
+        const d = new Date(dateStr);
+        return isNaN(d.getTime()) ? undefined : d;
+      }
+      // Interpret plain YYYY-MM-DD as Manila local day boundaries
+      const ts = endOfDay ? `${dateStr}T23:59:59+08:00` : `${dateStr}T00:00:00+08:00`;
+      const d = new Date(ts);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+
     const filters = {
       status: status as QueueStatus,
       salesAgentId: effectiveSalesAgentId,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
+      startDate: toManilaBoundary(startDate as string, false),
+      endDate: toManilaBoundary(endDate as string, true),
       searchTerm: searchTerm as string
     };
 
