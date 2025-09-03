@@ -99,7 +99,7 @@ async function handleAuthFailureAndMaybeRetry(
     } catch {}
     // Redirect to login if not already there
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.location.href = '/login';
+      window.location.replace('/login');
     }
     throw refreshError instanceof Error ? refreshError : new Error('Unauthorized');
   }

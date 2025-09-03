@@ -45,12 +45,11 @@ export const useSessionManager = (): SessionManagerState & SessionManagerActions
         // 5 minutes or less - subtle warning
         setWarningStage('subtle');
       } else if (timeLeft <= 0) {
-        // Expired - auto logout and broadcast event to unify behavior
+        // Expired - broadcast event; dedicated handler will clear tokens and redirect
         setWarningStage('none');
         try {
           window.dispatchEvent(new CustomEvent('session-expired'));
         } catch {}
-        logout();
       } else {
         // More than 5 minutes - no warning
         setWarningStage('none');
