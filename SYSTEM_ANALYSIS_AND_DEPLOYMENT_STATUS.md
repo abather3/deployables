@@ -1,8 +1,46 @@
 # ESCASHOP SYSTEM ANALYSIS AND DEPLOYMENT STATUS
 
-**Document Version:** 3.1  
-**Last Updated:** 2025-09-02 07:25 Philippine Time  
-**Session Focus:** Transaction Add-ons (Line Items) + Base Amount migration + Render deploy fix
+**Document Version:** 3.3  
+**Last Updated:** 2025-09-04 09:05 Philippine Time  
+**Session Focus:** Health check hardening on Render + Session auto-logout UX + Notifications/Dashboard UX fixes + Admin tooltips + Transaction Add-ons integration
+
+---
+
+## 🔒 Platform Hardening & Session Management (2025-09-02 → 2025-09-04)
+
+### Summary
+- Resolved Render health check flapping (HTTP 429) by introducing an unthrottled health endpoint and exempting it from rate limits.
+- Standardized session expiry behavior: instant, network-free logout and redirect on expiry; fetch utilities silently refresh once then redirect on failure.
+
+### Backend (Stability)
+- Added `/healthz` endpoint in `backend/src/index.ts` and `backend/src/app.ts` before any middleware; always returns 200 OK.
+- rateLimiter improvements (`backend/src/middleware/rateLimiter.ts`):
+  - Skip limiting for `/healthz`, `/health`, `/api/health`, `/robots.txt`.
+  - Use secure key generation that respects `X-Forwarded-For` behind proxies.
+- Render blueprint (`render.yaml`): `healthCheckPath` set to `/healthz`.
+- Impact: Eliminates 429 health check failures and Bad Gateway (502) due to unhealthy instance status on Render.
+- Commits: `b4254ba` (health endpoint + render.yaml), follow-up formatting fix included in same change set.
+
+### Frontend (Session UX)
+- Fetch utilities (`frontend/src/utils/api.ts`):
+  - On 401/403, attempt a one-time silent refresh; if it fails, clear tokens, emit `session-expired`, and `window.location.replace('/login')`.
+- Auth context (`frontend/src/contexts/AuthContext.tsx`):
+  - `session-expired` listener now performs immediate, network-free logout (clears tokens, dispatches LOGOUT) and redirects with `replace()`.
+- Session manager (`frontend/src/hooks/useSessionManager.ts`):
+  - Timer expiry now only emits `session-expired`; central handler manages logout/redirect to avoid races.
+- Build fixes: resolved TypeScript build issues caused by order-of-declaration and stray characters.
+- Commits: `7778c94` (auto-logout + fetch retry/redirect), `245ec02` (TS fix: move logout before usage), `93c07f5` (cleanup stray char), `73b9bb9` (instant network-free logout + replace()).
+
+### Session Timing Policy (effective)
+- Access token expiry: 30 minutes.
+- Refresh token expiry: 7 days (HttpOnly cookie + coordinated storage).
+- Proactive refresh: 5 minutes before expiry.
+- UI warnings: subtle at T-5m, urgent at T-1m.
+
+### Post-Deploy Verification
+- `/healthz` returns 200 quickly; Render Events no longer show health check 429 failures.
+- With expired access token but valid refresh token: first protected request refreshes silently and succeeds.
+- With expired/missing refresh token: user is immediately redirected to `/login` without further 401 loops.
 
 ---
 
@@ -377,6 +415,8 @@ app.get('/health', (req, res) => {
 ### **Git Commit Timeline**
 
 - 2025-09-02
+  - b4254ba: chore(health) add unthrottled /healthz; exempt in rate limiter; update Render healthCheckPath
+  - b798f5c: feat(admin/users) add tooltips for action icons
   - 59c3c8b: fix(customers) interpret YYYY-MM-DD filters as Asia/Manila day boundaries
   - 4a3f75a: fix(notifications) support legacy and isolated events; dashboard registered fallback
   - 699af95: fix(cashier) fallback for registered count; skip mark-read for fallback IDs
@@ -1447,7 +1487,8 @@ GET /api/sms/status          - SMS service status
 - ✅ Registered Customers Today count:
   - Client-side fallback: if summary returns 0, fetch /customers?startDate=today&endDate=today and use total
   - Server-side fix: interpret plain YYYY-MM-DD date filters as Asia/Manila day boundaries in /customers list
-- 📦 Commits: 254872d, 06ba0c5, cca8810, 3cb1360, 699af95, 4a3f75a, 59c3c8b
+- ✅ Admin Panel UX: Added tooltips for User Management action icons (Edit, Activate/Deactivate, Reset Password, Delete) for clarity and accessibility
+- 📦 Commits: 254872d, 06ba0c5, cca8810, 3cb1360, 699af95, 4a3f75a, 59c3c8b, b798f5c
 
 ### 2025-09-02 - Transaction Add-ons & Base Amount Unification
 - ✅ Feature: Line-item Add-ons for transactions
