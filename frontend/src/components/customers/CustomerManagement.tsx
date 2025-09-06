@@ -363,7 +363,8 @@ const CustomerManagement: React.FC = () => {
   }, []);
 
   const validatePrescriptionField = useCallback((value: string) => {
-    const prescriptionRegex = /^[a-zA-Z0-9+\-.()/\s]*$/;
+    // Allow letters, numbers and common prescription symbols including +, -, ., /, *, parentheses, and spaces
+    const prescriptionRegex = /^[a-zA-Z0-9+\-.*()/\s]*$/;
     return prescriptionRegex.test(value) && value.length <= 50;
   }, []);
 
@@ -811,8 +812,8 @@ const CustomerManagement: React.FC = () => {
       const hasValidEstimatedTime = (formData.estimated_time.days !== '' && formData.estimated_time.days !== 0) || 
                                    (formData.estimated_time.hours !== '' && formData.estimated_time.hours !== 0) || 
                                    (formData.estimated_time.minutes !== '' && formData.estimated_time.minutes !== 0);
-      return formData.prescription.od && formData.prescription.os && formData.prescription.ou &&
-             formData.prescription.pd && formData.prescription.add && formData.grade_type &&
+      // OD/OS/OU/PD/ADD are optional; only require product selections and an estimated time
+      return formData.grade_type &&
              formData.lens_type && formData.frame_code && hasValidEstimatedTime;
     }
     if (activeStep === 2) {
@@ -1218,9 +1219,8 @@ const CustomerManagement: React.FC = () => {
                       value={formData.prescription.od}
                       onChange={(e) => handleInputChange('prescription.od', e.target.value)}
                       fullWidth
-                      required
                       error={!!formData.prescription.od && !validatePrescriptionField(formData.prescription.od)}
-                      helperText="Max 50 characters. Allowed: letters, numbers, +, -, ., /, (, )"
+                      helperText="Max 50 characters. Allowed: letters, numbers, +, -, ., /, *, (, )"
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
@@ -1229,9 +1229,8 @@ const CustomerManagement: React.FC = () => {
                       value={formData.prescription.os}
                       onChange={(e) => handleInputChange('prescription.os', e.target.value)}
                       fullWidth
-                      required
                       error={!!formData.prescription.os && !validatePrescriptionField(formData.prescription.os)}
-                      helperText="Max 50 characters. Allowed: letters, numbers, +, -, ., /, (, )"
+                      helperText="Max 50 characters. Allowed: letters, numbers, +, -, ., /, *, (, )"
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
@@ -1240,9 +1239,8 @@ const CustomerManagement: React.FC = () => {
                       value={formData.prescription.ou}
                       onChange={(e) => handleInputChange('prescription.ou', e.target.value)}
                       fullWidth
-                      required
                       error={!!formData.prescription.ou && !validatePrescriptionField(formData.prescription.ou)}
-                      helperText="Max 50 characters. Allowed: letters, numbers, +, -, ., /, (, )"
+                      helperText="Max 50 characters. Allowed: letters, numbers, +, -, ., /, *, (, )"
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
@@ -1251,7 +1249,6 @@ const CustomerManagement: React.FC = () => {
                       value={formData.prescription.pd}
                       onChange={(e) => handleInputChange('prescription.pd', e.target.value)}
                       fullWidth
-                      required
                       error={!!formData.prescription.pd && !validatePrescriptionField(formData.prescription.pd)}
                     />
                   </Grid>
@@ -1261,7 +1258,6 @@ const CustomerManagement: React.FC = () => {
                       value={formData.prescription.add}
                       onChange={(e) => handleInputChange('prescription.add', e.target.value)}
                       fullWidth
-                      required
                       error={!!formData.prescription.add && !validatePrescriptionField(formData.prescription.add)}
                     />
                   </Grid>
