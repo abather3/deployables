@@ -24,16 +24,45 @@ const connectDatabase = async (): Promise<void> => {
     const password = decodeURIComponent(url.password || '');
     const database = (url.pathname || '/postgres').slice(1) || 'postgres';
     const port = url.port ? parseInt(url.port, 10) : 5432;
-    let host = url.hostname || 'localhost';
+    const originalHost = url.hostname || 'localhost';
+    let host = originalHost;
+
+    const hasPgBouncer = url.searchParams.get('pgbouncer') === 'true';
+    const sslMode = url.searchParams.get('sslmode') || 'none';
+    const isPoolerHost = originalHost.includes('pooler.supabase.com');
+    const isDirectHost = originalHost.endsWith('.supabase.co') && !isPoolerHost;
+
+    console.log('[DB] Parsed DATABASE_URL (sanitized):', {
+      host: originalHost,
+      port,
+      database,
+      user: username,
+      isPoolerHost,
+      isDirectHost,
+      hasPgBouncer,
+      sslMode
+    });
 
     // Resolve IPv4 if host is not an IP literal and not localhost
     if (host !== 'localhost' && isIP(host) === 0) {
       try {
         const { address } = await dnsPromises.lookup(host, { family: 4 });
+        console.log('[DB] IPv4 DNS resolved:', { host: originalHost, resolvedIPv4: address });
         host = address;
       } catch (e) {
-        console.warn('IPv4 DNS lookup failed, using original host:', host, e);
+        console.warn('[DB] IPv4 DNS lookup failed, using original host:', originalHost, e);
       }
+    }
+
+    // Quick configuration sanity checks
+    if (isPoolerHost && port !== 6543) {
+      console.warn('[DB] Configuration issue: pooler host detected but port is not 6543.');
+    }
+    if (isDirectHost && port === 6543) {
+      console.warn('[DB] Configuration issue: direct db host on port 6543 will refuse connections.');
+    }
+    if (isPoolerHost && !hasPgBouncer) {
+      console.warn('[DB] Configuration issue: pooler host without pgbouncer=true parameter.');
     }
 
     // Create the pool using explicit fields (avoids internal IPv6 resolution)
@@ -48,6 +77,8 @@ const connectDatabase = async (): Promise<void> => {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     });
+
+    console.log('[DB] Creating pg Pool with:', { resolvedHost: host, port, database, user: username });
 
     const client = await pool.connect();
     console.log('Database connection established');
