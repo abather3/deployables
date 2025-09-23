@@ -2,6 +2,10 @@ import { pool, connectDatabase } from './config/database';
 import fs from 'fs';
 import path from 'path';
 import { runSystemSettingsMigration } from './database/migrations/system_settings';
+import { setDefaultResultOrder } from 'dns';
+
+// Prefer IPv4 DNS resolution to avoid IPv6 ENETUNREACH on some hosts
+setDefaultResultOrder('ipv4first');
 
 async function runMigrations() {
   try {

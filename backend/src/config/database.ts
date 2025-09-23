@@ -1,5 +1,9 @@
 import { Pool } from 'pg';
 import { getSecureConfig } from './config';
+import { setDefaultResultOrder } from 'dns';
+
+// Prefer IPv4 DNS resolution to avoid IPv6 ENETUNREACH on some hosts
+setDefaultResultOrder('ipv4first');
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/escashop';
 

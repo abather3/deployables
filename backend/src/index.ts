@@ -24,6 +24,10 @@ import { authenticateToken } from './middleware/auth';
 import { setupWebSocketHandlers } from './services/websocket';
 import { errorHandler } from './middleware/errorHandler';
 import { DailyQueueScheduler } from './services/DailyQueueScheduler';
+import { setDefaultResultOrder } from 'dns';
+
+// Prefer IPv4 DNS resolution to avoid IPv6 ENETUNREACH on some hosts
+setDefaultResultOrder('ipv4first');
 
 const app: express.Application = express();
 const server = createServer(app);
