@@ -1,9 +1,25 @@
 import { Pool } from 'pg';
 import { getSecureConfig } from './config';
 import { setDefaultResultOrder } from 'dns';
+import * as dns from 'dns';
 
 // Prefer IPv4 DNS resolution to avoid IPv6 ENETUNREACH on some hosts
 setDefaultResultOrder('ipv4first');
+
+// Force IPv4-only DNS lookups for pg connections (Render can lack IPv6 routing)
+const forceIPv4Lookup = (
+  hostname: string,
+  options: any,
+  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
+) => {
+  if (typeof options === 'function') {
+    callback = options as any;
+    options = {};
+  }
+  // Merge options but enforce IPv4
+  const merged = { ...(options || {}), family: 4, all: false } as dns.LookupOneOptions;
+  return dns.lookup(hostname, merged, callback as any);
+};
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/escashop';
 
@@ -16,6 +32,8 @@ const pgPool = new Pool({
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
   connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+  // Ensure net.connect uses IPv4 by overriding DNS lookup
+  lookup: forceIPv4Lookup as any,
 });
 
 const pool = pgPool;
