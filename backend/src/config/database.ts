@@ -1,46 +1,55 @@
 import { Pool } from 'pg';
 import { getSecureConfig } from './config';
-import { setDefaultResultOrder } from 'dns';
-import * as dns from 'dns';
+import { setDefaultResultOrder, promises as dnsPromises } from 'dns';
+import { isIP } from 'net';
 
 // Prefer IPv4 DNS resolution to avoid IPv6 ENETUNREACH on some hosts
 setDefaultResultOrder('ipv4first');
-
-// Force IPv4-only DNS lookups for pg connections (Render can lack IPv6 routing)
-const forceIPv4Lookup = (
-  hostname: string,
-  options: any,
-  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
-) => {
-  if (typeof options === 'function') {
-    callback = options as any;
-    options = {};
-  }
-  // Merge options but enforce IPv4
-  const merged = { ...(options || {}), family: 4, all: false } as dns.LookupOneOptions;
-  return dns.lookup(hostname, merged, callback as any);
-};
 
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/escashop';
 
 // PostgreSQL configuration
 console.log('Using PostgreSQL database');
 
-const pgPool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
-  // Ensure net.connect uses IPv4 by overriding DNS lookup
-  lookup: forceIPv4Lookup as any,
-});
-
-const pool = pgPool;
+// Pool instance (initialized in connectDatabase)
+let pool!: Pool;
 
 const connectDatabase = async (): Promise<void> => {
   try {
-    const client = await pgPool.connect();
+    // Parse DATABASE_URL and resolve IPv4 address for hostname
+    const dbUrl = DATABASE_URL;
+    const url = new URL(dbUrl);
+
+    const username = decodeURIComponent(url.username || '');
+    const password = decodeURIComponent(url.password || '');
+    const database = (url.pathname || '/postgres').slice(1) || 'postgres';
+    const port = url.port ? parseInt(url.port, 10) : 5432;
+    let host = url.hostname || 'localhost';
+
+    // Resolve IPv4 if host is not an IP literal and not localhost
+    if (host !== 'localhost' && isIP(host) === 0) {
+      try {
+        const { address } = await dnsPromises.lookup(host, { family: 4 });
+        host = address;
+      } catch (e) {
+        console.warn('IPv4 DNS lookup failed, using original host:', host, e);
+      }
+    }
+
+    // Create the pool using explicit fields (avoids internal IPv6 resolution)
+    pool = new Pool({
+      host,
+      port,
+      database,
+      user: username,
+      password,
+      ssl: dbUrl.includes('localhost') ? false : { rejectUnauthorized: false },
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+
+    const client = await pool.connect();
     console.log('Database connection established');
     client.release();
   } catch (error) {
@@ -55,7 +64,7 @@ const initializeDatabase = async (): Promise<void> => {
     
     // Check if database is already initialized by looking for key tables
     try {
-      const result = await pgPool.query(`
+      const result = await pool.query(`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public' 
@@ -129,7 +138,7 @@ const initializeDatabase = async (): Promise<void> => {
     // Execute each statement
     for (const statement of statements) {
       if (statement.trim()) {
-        await pgPool.query(statement);
+        await pool.query(statement);
       }
     }
     
@@ -150,10 +159,14 @@ const gracefulShutdown = () => {
   isShuttingDown = true;
   
   console.log('Closing database connection pool...');
-  pool.end(() => {
-    console.log('Database connection pool closed');
+  if (pool) {
+    pool.end(() => {
+      console.log('Database connection pool closed');
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 };
 
 // Only handle actual shutdown signals, not development reload signals
