@@ -36,6 +36,8 @@ services:
         value: gmail
       - key: EMAIL_USER
         value: jefor16@gmail.com
+      - key: EMAIL_FROM
+        value: ESCA Shop <jefor16@gmail.com>
       - key: EMAIL_PASSWORD
         value: yhtykpskbzomlwib
 

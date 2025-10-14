@@ -113,15 +113,20 @@ EscaShop Optical Team
         setTimeout(() => reject(new Error('Email sending timeout')), timeoutMs)
       );
       
-      await Promise.race([sendEmailPromise, timeoutPromise]);
-      console.log('Password reset email sent successfully to:', email);
+      const result = await Promise.race([sendEmailPromise, timeoutPromise]);
+      console.log('✅ Password reset email sent successfully to:', email);
+      console.log('Email result:', result);
       return true;
-    } catch (error) {
-      console.error('Error sending actual email:', error);
-      // Email failed, but don't block password reset - return true anyway
-      // User will still get reset token, just no email notification
-      console.warn('⚠️  Email failed but password reset will proceed');
-      return true; // Changed from false to true to not block the reset
+    } catch (error: any) {
+      console.error('❌ Error sending actual email:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response,
+        command: error.command
+      });
+      // Return false to properly report email failure
+      return false;
     }
   }
 

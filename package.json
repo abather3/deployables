@@ -22,6 +22,7 @@
     "test:e2e:websocket": "playwright test tests/websocket-connection-recovery.spec.ts"
   },
   "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.9.0",
     "@playwright/test": "^1.54.1",
     "concurrently": "^8.2.2"
   },

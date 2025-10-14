@@ -1,8 +1,58 @@
 # ESCASHOP SYSTEM ANALYSIS AND DEPLOYMENT STATUS
 
-**Document Version:** 3.3  
-**Last Updated:** 2025-09-04 09:05 Philippine Time  
-**Session Focus:** Health check hardening on Render + Session auto-logout UX + Notifications/Dashboard UX fixes + Admin tooltips + Transaction Add-ons integration
+**Document Version:** 3.4  
+**Last Updated:** 2025-09-23 21:44 Philippine Time  
+**Session Focus:** Database migration to Supabase + IPv6/connection stabilization + DB diagnostics + Health check/session hardening (previous)
+
+---
+
+## 🆘 Urgent: Database migration to Supabase and connectivity stabilization (2025-09-23)
+
+### Summary
+- Render-managed Postgres expired; migrated to Supabase (Free) to avoid auto-expiration.
+- Encountered IPv6 routing issues from Render to Supabase hosts (ENETUNREACH) and credential/host-port mismatches.
+- Implemented IPv4-first resolution and explicit connection parsing in backend; added secret-safe diagnostics.
+
+### Symptoms Observed in Render Logs
+- ENOTFOUND/ENETUNREACH to dpg-* (old Render DB) → stale DATABASE_URL.
+- ENETUNREACH to IPv6 addresses when using Supabase hosts.
+- ECONNREFUSED to x.x.x.x:6543 when using direct db.<project_ref>.supabase.co with pooler port.
+- 28P01 password authentication failures due to wrong username/password or bad URI encoding.
+
+### Actions Implemented (Code)
+- backend/src/index.ts, backend/src/migrate.ts, backend/src/migrate-improved.ts
+  - setDefaultResultOrder('ipv4first') to prefer IPv4.
+- backend/src/config/database.ts
+  - Parse DATABASE_URL with URL API; log sanitized connection info: { host, port, database, user, isPoolerHost, hasPgBouncer, sslMode }.
+  - Resolve IPv4 via dns.promises.lookup(host, { family: 4 }); log resolved IPv4.
+  - Mismatch warnings: pooler host on wrong port, direct host on 6543, pooler without pgbouncer=true.
+  - Create Pool using explicit host/port/user/password/database to avoid implicit IPv6 lookup.
+
+### Required Environment Configuration (Render → escashop-backend)
+- DATABASE_URL must be the Supabase pooled Session URI, for example:
+  postgresql://postgres.<PROJECT_REF>:<ENCODED_PASSWORD>@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require
+- Notes:
+  - Use the exact username (postgres.<PROJECT_REF>) shown in Supabase Connect → Pooling → Session.
+  - Ensure password is URL-encoded; best: copy with "Include password" toggled.
+  - Do not use db.<project_ref>.supabase.co with port 6543 (will ECONNREFUSED). Use pooler host with 6543.
+  - If 28P01 persists, reset DB password in Supabase Settings → Database and re-copy the pooled URI.
+
+### Verification Checklist
+1) Render logs should show lines:
+   - "[DB] Parsed DATABASE_URL (sanitized): { host, port, database, user, isPoolerHost: true, hasPgBouncer: true, sslMode: 'require' }"
+   - "[DB] IPv4 DNS resolved: { host: '...pooler.supabase.com', resolvedIPv4: 'x.x.x.x' }"
+   - "Database connection established"
+2) Backend continues with migrations and starts listening on PORT.
+
+### Commit References
+- 7d49398: fix(db) prefer IPv4 DNS resolution to avoid IPv6 ENETUNREACH on Supabase
+- ef9f7ae: chore(db) tighten IPv4 enforcement (initial approach)
+- 91e1edb: refactor(db) build Pool after resolving IPv4; remove unsupported lookup option
+- 03cb526: chore(db) add detailed, secret-safe DB connection diagnostics
+
+### Current Status
+- In-progress: updating Render DATABASE_URL to pooled Session URI and verifying logs.
+- Code-level IPv4 and diagnostics in place; awaiting correct credentials/URI to confirm green connection and migrations.
 
 ---
 
@@ -413,6 +463,12 @@ app.get('/health', (req, res) => {
 ## 🚀 DEPLOYMENT HISTORY
 
 ### **Git Commit Timeline**
+
+- 2025-09-23
+  - 03cb526: chore(db) add secret-safe DB diagnostics (host/port/user/pgbouncer/ssl + mismatch warnings)
+  - 91e1edb: refactor(db) create Pool after resolving IPv4 host; remove unsupported lookup; explicit fields
+  - ef9f7ae: chore(db) force IPv4 lookup (initial attempt)
+  - 7d49398: fix(db) prefer IPv4 DNS resolution in index/migrate paths
 
 - 2025-09-02
   - b4254ba: chore(health) add unthrottled /healthz; exempt in rate limiter; update Render healthCheckPath
