@@ -335,13 +335,17 @@ const EnhancedTransactionManagement: React.FC = () => {
     }
   ];
 
-  // API Connection Test
+  // API Connection Test - Use /healthz instead of /api/health to avoid DB dependency
   const testApiConnection = useCallback(async () => {
     try {
-      // Simple health check API call - use centralized API utilities
-      const { authenticatedApiRequest } = await import('../../utils/api');
-      // IMPORTANT: pass '/health' (base already includes /api)
-      const response = await authenticatedApiRequest('/health', { method: 'GET' });
+      // Use /healthz endpoint which doesn't require DB connection
+      // This gives a true app availability status, not DB health
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const baseUrl = apiUrl.replace('/api', '');
+      const response = await fetch(`${baseUrl}/healthz`, { 
+        method: 'GET',
+        cache: 'no-store'
+      });
       
       if (response.ok) {
         setApiConnectionStatus('connected');
@@ -356,7 +360,7 @@ const EnhancedTransactionManagement: React.FC = () => {
       setApiConnectionStatus('disconnected');
       return false;
     }
-  }, [user]);
+  }, []);
 
   // Retry mechanism for failed API calls
   const retryApiCall = useCallback(async (apiCall: () => Promise<any>, maxRetries = 3) => {

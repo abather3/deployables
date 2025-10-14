@@ -75,7 +75,7 @@ const connectDatabase = async (): Promise<void> => {
       ssl: dbUrl.includes('localhost') ? false : { rejectUnauthorized: false },
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased from 2000ms to 10000ms for Supabase
     });
 
     console.log('[DB] Creating pg Pool with:', { resolvedHost: host, port, database, user: username });
