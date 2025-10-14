@@ -43,16 +43,18 @@ const connectDatabase = async (): Promise<void> => {
       sslMode
     });
 
-    // Resolve IPv4 if host is not an IP literal and not localhost
-    if (host !== 'localhost' && isIP(host) === 0) {
-      try {
-        const { address } = await dnsPromises.lookup(host, { family: 4 });
-        console.log('[DB] IPv4 DNS resolved:', { host: originalHost, resolvedIPv4: address });
-        host = address;
-      } catch (e) {
-        console.warn('[DB] IPv4 DNS lookup failed, using original host:', originalHost, e);
-      }
-    }
+    // TEMPORARY: Skip IPv4 DNS resolution for Supabase to diagnose connection issues
+    // Use the hostname directly instead of resolving to IP
+    console.log('[DB] Skipping IPv4 DNS resolution, using hostname directly:', originalHost);
+    // if (host !== 'localhost' && isIP(host) === 0) {
+    //   try {
+    //     const { address } = await dnsPromises.lookup(host, { family: 4 });
+    //     console.log('[DB] IPv4 DNS resolved:', { host: originalHost, resolvedIPv4: address });
+    //     host = address;
+    //   } catch (e) {
+    //     console.warn('[DB] IPv4 DNS lookup failed, using original host:', originalHost, e);
+    //   }
+    // }
 
     // Quick configuration sanity checks
     if (isPoolerHost && port !== 6543) {
@@ -79,7 +81,7 @@ const connectDatabase = async (): Promise<void> => {
       min: 2, // Keep minimum connections warm
       // Extended timeouts for Supabase network latency
       idleTimeoutMillis: 60000, // 60 seconds (increased from 30s)
-      connectionTimeoutMillis: 10000, // 10 seconds
+      connectionTimeoutMillis: 30000, // 30 seconds (increased for cold start diagnosis)
       // Enable TCP keepalive to prevent stale connections
       keepAlive: true,
       keepAliveInitialDelayMillis: 10000, // Start keepalive after 10s
