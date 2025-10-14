@@ -37,7 +37,7 @@ services:
       - key: EMAIL_USER
         value: jefor16@gmail.com
       - key: EMAIL_PASSWORD
-        value: cutbcijqacobypak
+        value: yhtykpskbzomlwib
 
   # Frontend
   - type: web
