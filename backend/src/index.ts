@@ -55,9 +55,20 @@ if (process.env.NODE_ENV === 'development') {
   app.set('trust proxy', 1); // Trust first proxy
 }
 
-// Health check - MUST be before any rate limiters
+// Health check - MUST be before any rate limiters but needs CORS headers
 app.get('/healthz', (_req, res) => {
+  // Manually set CORS headers for health check since it's before CORS middleware
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.status(200).send('ok');
+});
+
+app.options('/healthz', (_req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.status(204).send();
 });
 
 // Middleware
