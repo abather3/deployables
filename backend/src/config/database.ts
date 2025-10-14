@@ -43,18 +43,16 @@ const connectDatabase = async (): Promise<void> => {
       sslMode
     });
 
-    // TEMPORARY: Skip IPv4 DNS resolution for Supabase to diagnose connection issues
-    // Use the hostname directly instead of resolving to IP
-    console.log('[DB] Skipping IPv4 DNS resolution, using hostname directly:', originalHost);
-    // if (host !== 'localhost' && isIP(host) === 0) {
-    //   try {
-    //     const { address } = await dnsPromises.lookup(host, { family: 4 });
-    //     console.log('[DB] IPv4 DNS resolved:', { host: originalHost, resolvedIPv4: address });
-    //     host = address;
-    //   } catch (e) {
-    //     console.warn('[DB] IPv4 DNS lookup failed, using original host:', originalHost, e);
-    //   }
-    // }
+    // Force IPv4 DNS resolution to avoid IPv6 ENETUNREACH errors with Supabase
+    if (host !== 'localhost' && isIP(host) === 0) {
+      try {
+        const { address } = await dnsPromises.lookup(host, { family: 4 });
+        console.log('[DB] IPv4 DNS resolved:', { host: originalHost, resolvedIPv4: address });
+        host = address;
+      } catch (e) {
+        console.warn('[DB] IPv4 DNS lookup failed, using original host:', originalHost, e);
+      }
+    }
 
     // Quick configuration sanity checks
     if (isPoolerHost && port !== 6543) {
