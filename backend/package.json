@@ -20,7 +20,8 @@
     "security:check": "npm audit && npm run lint:security",
     "fix-admin-password": "node fix-admin-password-production.js",
     "fix-admin-panel": "node fix-admin-panel-production.js",
-    "diagnose-email": "node diagnose-email-config.js"
+    "diagnose-email": "node diagnose-email-config.js",
+    "test-password-reset": "node test-password-reset.js"
   },
   "dependencies": {
     "@types/cookie-parser": "^1.4.9",
