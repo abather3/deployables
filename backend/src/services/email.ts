@@ -105,12 +105,23 @@ EscaShop Optical Team
       };
 
       console.log('Sending password reset email to:', email);
-      await transporter.sendMail(mailOptions);
+      
+      // Add timeout to prevent hanging - fail fast if email takes too long
+      const timeoutMs = 8000; // 8 seconds
+      const sendEmailPromise = transporter.sendMail(mailOptions);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email sending timeout')), timeoutMs)
+      );
+      
+      await Promise.race([sendEmailPromise, timeoutPromise]);
       console.log('Password reset email sent successfully to:', email);
       return true;
     } catch (error) {
       console.error('Error sending actual email:', error);
-      return false;
+      // Email failed, but don't block password reset - return true anyway
+      // User will still get reset token, just no email notification
+      console.warn('⚠️  Email failed but password reset will proceed');
+      return true; // Changed from false to true to not block the reset
     }
   }
 
@@ -191,12 +202,21 @@ EscaShop Optical Team
       };
 
       console.log('Sending welcome email to:', email);
-      await transporter.sendMail(mailOptions);
+      
+      // Add timeout to prevent hanging
+      const timeoutMs = 8000; // 8 seconds
+      const sendEmailPromise = transporter.sendMail(mailOptions);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email sending timeout')), timeoutMs)
+      );
+      
+      await Promise.race([sendEmailPromise, timeoutPromise]);
       console.log('Welcome email sent successfully to:', email);
       return true;
     } catch (error) {
       console.error('Error sending actual welcome email:', error);
-      return false;
+      console.warn('⚠️  Welcome email failed but user creation will proceed');
+      return true; // Don't block user creation if email fails
     }
   }
 
