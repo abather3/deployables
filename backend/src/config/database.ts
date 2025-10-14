@@ -66,6 +66,7 @@ const connectDatabase = async (): Promise<void> => {
     }
 
     // Create the pool using explicit fields (avoids internal IPv6 resolution)
+    // Optimized for Supabase with pgBouncer pooling
     pool = new Pool({
       host,
       port,
@@ -73,9 +74,17 @@ const connectDatabase = async (): Promise<void> => {
       user: username,
       password,
       ssl: dbUrl.includes('localhost') ? false : { rejectUnauthorized: false },
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000, // Increased from 2000ms to 10000ms for Supabase
+      // Reduced pool size for Supabase (free tier has connection limits)
+      max: isPoolerHost ? 10 : 20,
+      min: 2, // Keep minimum connections warm
+      // Extended timeouts for Supabase network latency
+      idleTimeoutMillis: 60000, // 60 seconds (increased from 30s)
+      connectionTimeoutMillis: 10000, // 10 seconds
+      // Enable TCP keepalive to prevent stale connections
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000, // Start keepalive after 10s
+      // Statement timeout to prevent hanging queries
+      statement_timeout: isPoolerHost ? 15000 : 30000, // 15s for pooler, 30s for direct
     });
 
     console.log('[DB] Creating pg Pool with:', { resolvedHost: host, port, database, user: username });
