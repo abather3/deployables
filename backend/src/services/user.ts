@@ -297,8 +297,15 @@ const isValidPassword = await argon2.verify(userWithPassword.password_hash, pass
     await pool.query(query, [resetToken, resetTokenExpiry, id]);
 
     // Send password reset email
-    await EmailService.sendPasswordResetEmail(user.email, resetToken, user.full_name);
-
+    console.log(`Sending password reset email to ${user.email}...`);
+    const emailSent = await EmailService.sendPasswordResetEmail(user.email, resetToken, user.full_name);
+    
+    if (!emailSent) {
+      console.error(`❌ Failed to send password reset email to ${user.email}`);
+      throw new Error('Failed to send password reset email. Please check email configuration.');
+    }
+    
+    console.log(`✅ Password reset email successfully sent to ${user.email}`);
     return { resetToken };
   }
 
@@ -344,10 +351,17 @@ const isValidPassword = await argon2.verify(userWithPassword.password_hash, pass
     const user = await this.findByEmail(email);
     if (!user) {
       // Don't reveal whether email exists for security
+      console.log(`Password reset requested for non-existent email: ${email}`);
       return true;
     }
 
-    await this.triggerPasswordReset(user.id);
-    return true;
+    try {
+      await this.triggerPasswordReset(user.id);
+      return true;
+    } catch (error) {
+      console.error(`Failed to trigger password reset for ${email}:`, error);
+      // Re-throw the error so the API can properly report it
+      throw error;
+    }
   }
 }
