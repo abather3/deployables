@@ -5,7 +5,7 @@ services:
     env: node
     plan: starter
     buildCommand: cd backend && npm ci && npm run build:prod
-    startCommand: cd backend && npm start
+    startCommand: cd backend && npm run start:skip-migrate
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
