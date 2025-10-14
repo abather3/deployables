@@ -86,7 +86,7 @@ EscaShop Optical Team
       const resetLink = `${config.FRONTEND_URL}/reset-password/${resetToken}`;
       
       const mailOptions = {
-        from: config.EMAIL_FROM,
+        from: `"ESCA Shop" <${config.EMAIL_FROM}>`,
         to: email,
         subject: 'Password Reset Request - EscaShop Optical',
         html: `
@@ -187,7 +187,7 @@ EscaShop Optical Team
       });
 
       const mailOptions = {
-        from: config.EMAIL_FROM,
+        from: `"ESCA Shop" <${config.EMAIL_FROM}>`,
         to: email,
         subject: 'Welcome to EscaShop Optical - Account Created',
         html: `

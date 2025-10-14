@@ -37,7 +37,7 @@ services:
       - key: EMAIL_USER
         value: jefor16@gmail.com
       - key: EMAIL_FROM
-        value: ESCA Shop <jefor16@gmail.com>
+        value: jefor16@gmail.com
       - key: EMAIL_PASSWORD
         value: yhtykpskbzomlwib
 
@@ -45,8 +45,8 @@ services:
   - type: web
     name: escashop-frontend
     env: static
-    buildCommand: cd frontend && npm ci && NODE_ENV=production REACT_APP_API_URL=https://escashop-backend.onrender.com/api REACT_APP_BUILD_TIME=2025-08-18-03-19 npm run build
-    publishDir: frontend/build
+    buildCommand: cd frontend && npm ci && NODE_ENV=production REACT_APP_API_URL=https://escashop-backend.onrender.com/api REACT_APP_BUILD_TIME=2025-10-14-11-50 npm run build
+    staticPublishPath: frontend/build
     envVars:
       - key: NODE_ENV
         value: production
