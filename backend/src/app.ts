@@ -18,6 +18,7 @@ import schedulerRoutes from './routes/scheduler';
 import exportRoutes from './routes/exports';
 import fixTransactionRoutes from './routes/fix-transactions';
 import migrationRoutes from './routes/migration';
+import diagnosticRoutes from './routes/diagnostic';
 import { authenticateToken } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -91,6 +92,7 @@ app.use('/api/scheduler', authenticateToken, schedulerRoutes);
 app.use('/api/exports', authenticateToken, exportRoutes);
 app.use('/api/fix-transactions', authenticateToken, fixTransactionRoutes);
 app.use('/api/migration', authenticateToken, migrationRoutes);
+app.use('/api/diagnostic', diagnosticRoutes);
 
 // Global error handler middleware - must be added after all routes
 app.use(errorHandler);
