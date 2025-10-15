@@ -105,12 +105,17 @@ EscaShop Optical Team
       };
 
       console.log('Sending password reset email to:', email);
+      console.log('Using SMTP config:', {
+        service: 'gmail',
+        user: config.EMAIL_USER,
+        from: config.EMAIL_FROM
+      });
       
-      // Add timeout to prevent hanging - fail fast if email takes too long
-      const timeoutMs = 8000; // 8 seconds
+      // Add timeout to prevent hanging - increased to 30 seconds
+      const timeoutMs = 30000; // 30 seconds
       const sendEmailPromise = transporter.sendMail(mailOptions);
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Email sending timeout')), timeoutMs)
+        setTimeout(() => reject(new Error('Email sending timeout after 30 seconds - check Gmail App Password and SMTP access')), timeoutMs)
       );
       
       const result = await Promise.race([sendEmailPromise, timeoutPromise]);
@@ -123,8 +128,22 @@ EscaShop Optical Team
         message: error.message,
         code: error.code,
         response: error.response,
-        command: error.command
+        responseCode: error.responseCode,
+        command: error.command,
+        stack: error.stack?.split('\n').slice(0, 3).join('\n')
       });
+      
+      // Provide helpful error messages
+      if (error.message?.includes('timeout')) {
+        console.error('\n⚠️  SMTP Connection Timeout - Possible causes:');
+        console.error('   1. Invalid Gmail App Password (check EMAIL_PASSWORD)');
+        console.error('   2. Gmail blocking connection (verify 2-Step Verification is enabled)');
+        console.error('   3. EMAIL_USER not matching EMAIL_FROM');
+        console.error('   4. Network/firewall blocking SMTP port 587/465');
+      } else if (error.code === 'EAUTH' || error.responseCode === 535) {
+        console.error('\n⚠️  Authentication Failed - Gmail App Password is incorrect');
+        console.error('   Generate new App Password at: https://myaccount.google.com/apppasswords');
+      }
       // Return false to properly report email failure
       return false;
     }
@@ -212,7 +231,7 @@ EscaShop Optical Team
       console.log('Sending welcome email to:', email);
       
       // Add timeout to prevent hanging
-      const timeoutMs = 8000; // 8 seconds
+      const timeoutMs = 30000; // 30 seconds
       const sendEmailPromise = transporter.sendMail(mailOptions);
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Email sending timeout')), timeoutMs)
