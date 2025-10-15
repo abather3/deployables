@@ -55,13 +55,13 @@ EscaShop Optical Team
         }
         return result;
       } else {
-        console.log('\n⚠️  Email service is disabled, using console output only');
-        console.log('   To enable email sending, set EMAIL_SERVICE_ENABLED=true');
+        console.log('\n⚠️  Email service is DISABLED - emails will NOT be sent!');
+        console.log('   To enable email sending, set EMAIL_SERVICE_ENABLED=true in your environment');
         console.log('   Also ensure EMAIL_PASSWORD is set with Gmail App Password');
+        console.error('❌ Cannot send password reset email - EMAIL_SERVICE_ENABLED is not true');
+        // DO NOT return true when disabled - this was misleading!
+        throw new Error('Email service is disabled. Set EMAIL_SERVICE_ENABLED=true to send emails.');
       }
-
-      // For development, always return true
-      return true;
     } catch (error) {
       console.error('Error sending password reset email:', error);
       return false;
@@ -165,7 +165,10 @@ EscaShop Optical Team
         return await this.sendActualWelcomeEmail(email, userName, temporaryPassword);
       }
 
-      return true;
+      console.warn('⚠️  Email service is disabled - welcome email not sent');
+      // For welcome emails, we don't throw error to avoid blocking user creation
+      // But we return false to indicate email wasn't sent
+      return false;
     } catch (error) {
       console.error('Error sending welcome email:', error);
       return false;

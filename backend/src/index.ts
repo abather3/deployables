@@ -236,6 +236,23 @@ async function startServer() {
     // Initialize database tables
     await initializeDatabase();
     
+    // Log email configuration on startup
+    console.log('\n' + '='.repeat(60));
+    console.log('📧 EMAIL SERVICE CONFIGURATION');
+    console.log('='.repeat(60));
+    console.log(`EMAIL_SERVICE_ENABLED: ${config.EMAIL_SERVICE_ENABLED}`);
+    console.log(`EMAIL_USER: ${config.EMAIL_USER}`);
+    console.log(`EMAIL_FROM: ${config.EMAIL_FROM}`);
+    console.log(`EMAIL_PASSWORD: ${config.EMAIL_PASSWORD ? '✅ SET' : '❌ NOT SET'}`);
+    console.log(`FRONTEND_URL: ${config.FRONTEND_URL}`);
+    if (config.EMAIL_SERVICE_ENABLED) {
+      console.log('✅ Email service is ENABLED - Emails will be sent');
+    } else {
+      console.log('⚠️  Email service is DISABLED - Emails will NOT be sent');
+      console.log('   Set EMAIL_SERVICE_ENABLED=true to enable email sending');
+    }
+    console.log('='.repeat(60) + '\n');
+    
     // Initialize Daily Queue Scheduler
     try {
       DailyQueueScheduler.initialize();

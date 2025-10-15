@@ -2,6 +2,7 @@ import express, { Router, Response } from 'express';
 import { ActivityService } from '../services/activity';
 import { NotificationService } from '../services/notification';
 import { ReportService } from '../services/transaction';
+import { EmailService } from '../services/email';
 import { authenticateToken, requireAdmin, logActivity } from '../middleware/auth';
 import { AuthRequest, NotificationStatus } from '../types';
 import { pool } from '../config/database';
@@ -654,6 +655,48 @@ router.delete('/counters/:id', authenticateToken, requireAdmin, logActivity('del
   } catch (error) {
     console.error('Error deleting counter:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Test email endpoint (admin only)
+router.post('/test-email', authenticateToken, requireAdmin, logActivity('test_email'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      res.status(400).json({ error: 'Email address is required' });
+      return;
+    }
+
+    console.log(`\n📧 Admin test email requested by user ${req.user?.id} to: ${email}`);
+    
+    // Generate a test reset token
+    const testToken = 'test-token-' + Date.now();
+    const userName = req.user?.full_name || 'Admin';
+    
+    // Try to send the email
+    const emailSent = await EmailService.sendPasswordResetEmail(email, testToken, userName);
+    
+    if (emailSent) {
+      res.json({ 
+        success: true,
+        message: `Test email sent successfully to ${email}`,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({ 
+        success: false,
+        error: 'Failed to send test email. Check server logs for details.',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error instanceof Error ? error.message : 'Internal server error',
+      timestamp: new Date().toISOString()
+    });
   }
 });
 

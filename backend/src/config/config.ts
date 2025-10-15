@@ -27,7 +27,11 @@ export const config = {
   SMS_API_KEY: process.env.SMS_API_KEY || '',
   
   // Email Service (non-sensitive)
-  EMAIL_SERVICE_ENABLED: process.env.EMAIL_SERVICE_ENABLED === 'true',
+  // Robust boolean parsing: accepts "true", "1", "yes", "y", "on" (case-insensitive)
+  EMAIL_SERVICE_ENABLED: (() => {
+    const value = (process.env.EMAIL_SERVICE_ENABLED || '').toLowerCase().trim();
+    return ['true', '1', 'yes', 'y', 'on'].includes(value);
+  })(),
   EMAIL_SERVICE: process.env.EMAIL_SERVICE || 'gmail',
   EMAIL_USER: process.env.EMAIL_USER || 'jefor16@gmail.com',
   EMAIL_FROM: process.env.EMAIL_FROM || 'jefor16@gmail.com',
