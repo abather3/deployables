@@ -74,13 +74,18 @@ EscaShop Optical Team
     userName: string
   ): Promise<boolean> {
     try {
-      // Create transporter with Gmail configuration
+      // Create transporter with Gmail configuration using SSL (port 465)
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // use SSL
         auth: {
           user: config.EMAIL_USER,
           pass: config.EMAIL_PASSWORD
-        }
+        },
+        connectionTimeout: 30000, // 30 second timeout
+        greetingTimeout: 15000,
+        socketTimeout: 30000
       });
 
       const resetLink = `${config.FRONTEND_URL}/reset-password/${resetToken}`;
@@ -106,7 +111,9 @@ EscaShop Optical Team
 
       console.log('Sending password reset email to:', email);
       console.log('Using SMTP config:', {
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         user: config.EMAIL_USER,
         from: config.EMAIL_FROM
       });
@@ -201,11 +208,16 @@ EscaShop Optical Team
   ): Promise<boolean> {
     try {
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // use SSL
         auth: {
           user: config.EMAIL_USER,
           pass: config.EMAIL_PASSWORD
-        }
+        },
+        connectionTimeout: 30000,
+        greetingTimeout: 15000,
+        socketTimeout: 30000
       });
 
       const mailOptions = {
